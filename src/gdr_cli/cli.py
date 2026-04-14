@@ -41,16 +41,29 @@ def main(
 
 @app.command()
 def chat(
-    prompt: str = typer.Argument(help="Message to send to Gemini"),
+    prompt: Optional[str] = typer.Argument(default=None, help="Message to send to Gemini"),
     profile: str = typer.Option(
         "default", "--profile", "-p", help="Auth profile name",
     ),
+    continue_chat: Optional[str] = typer.Option(
+        None, "--continue", "-c", help="Continue chat by CID (omit CID for last chat)",
+    ),
 ):
-    """Send a message to Gemini and get a response (quick test)."""
-    from gdr_cli.chat import send_message
+    """Chat with Gemini. No prompt enters interactive mode."""
+    from gdr_cli.repl import run_repl
 
     try:
-        response = asyncio.run(send_message(prompt, profile=profile))
+        metadata = None
+        if continue_chat is not None:
+            if continue_chat:
+                metadata = [continue_chat]
+            else:
+                from gdr_cli.chat import list_recent_chats
+                chats = list_recent_chats(profile=profile)
+                if chats:
+                    metadata = [chats[0]["cid"]]
+
+        asyncio.run(run_repl(profile=profile, metadata=metadata))
     except GDRError as e:
         console.print(f"[red]Error:[/red] {e.message}")
         if e.hint:
@@ -60,7 +73,83 @@ def chat(
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)
 
-    console.print(response)
+
+chats_app = typer.Typer(help="Manage Gemini chat sessions", no_args_is_help=True)
+app.add_typer(chats_app, name="chats")
+
+
+@chats_app.command(name="list")
+def chats_list(
+    profile: str = typer.Option(
+        "default", "--profile", "-p", help="Auth profile name",
+    ),
+):
+    """List recent chat conversations."""
+    from datetime import datetime
+    from gdr_cli.chat import list_recent_chats
+
+    try:
+        chats = list_recent_chats(profile=profile)
+    except GDRError as e:
+        console.print(f"[red]Error:[/red] {e.message}")
+        if e.hint:
+            console.print(f"[dim]Hint: {e.hint}[/dim]")
+        raise typer.Exit(2)
+
+    if not chats:
+        console.print("No recent chats found.")
+        return
+
+    from rich.table import Table
+
+    table = Table(title="Recent Chats")
+    table.add_column("#", style="dim", width=3)
+    table.add_column("Title", style="bold", max_width=50)
+    table.add_column("CID", style="dim", max_width=20)
+    table.add_column("Date", style="dim")
+
+    for i, c in enumerate(chats, 1):
+        dt = datetime.fromtimestamp(c["timestamp"]).strftime("%Y-%m-%d %H:%M")
+        pin = "* " if c.get("is_pinned") else ""
+        table.add_row(str(i), f"{pin}{c['title']}", c["cid"][:16] + "...", dt)
+
+    console.print(table)
+
+
+@chats_app.command(name="show")
+def chats_show(
+    cid: str = typer.Argument(help="Chat ID to display"),
+    profile: str = typer.Option(
+        "default", "--profile", "-p", help="Auth profile name",
+    ),
+    limit: int = typer.Option(
+        20, "--limit", "-n", help="Number of turns to show",
+    ),
+):
+    """Show conversation history for a chat."""
+    from gdr_cli.chat import read_chat_history
+
+    try:
+        history = asyncio.run(read_chat_history(cid, limit=limit, profile=profile))
+    except GDRError as e:
+        console.print(f"[red]Error:[/red] {e.message}")
+        if e.hint:
+            console.print(f"[dim]Hint: {e.hint}[/dim]")
+        raise typer.Exit(2)
+
+    if history is None:
+        console.print(f"[yellow]Chat not found: {cid}[/yellow]")
+        raise typer.Exit(1)
+
+    console.print(f"[bold]Chat:[/bold] {cid}")
+    console.print(f"[bold]Turns:[/bold] {len(history['turns'])}\n")
+
+    for turn in history["turns"]:
+        if turn["role"] == "user":
+            console.print(f"[green]You:[/green] {turn['text']}")
+        else:
+            console.print(f"[blue]Gemini:[/blue] {turn['text']}")
+        console.print()
 
 
 @app.command()

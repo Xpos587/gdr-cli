@@ -40,7 +40,7 @@ class TestHelp:
 class TestErrorHandling:
     def test_chat_auth_error_shows_hint(self):
         from gdr_cli.exceptions import GDRError
-        with patch("gdr_cli.chat.send_message", side_effect=GDRError("No cookies", hint="Run 'gdr login'")):
+        with patch("gdr_cli.repl.run_repl", side_effect=GDRError("No cookies", hint="Run 'gdr login'")):
             result = runner.invoke(app, ["chat", "hello"])
         assert result.exit_code == 2
         assert "Run 'gdr login'" in result.output
@@ -51,3 +51,25 @@ class TestErrorHandling:
             result = runner.invoke(app, ["research", "test"])
         assert result.exit_code == 3
         assert "limit" in result.output.lower()
+
+
+class TestChatReplSmoke:
+    def test_chat_help_shows_continue(self):
+        result = runner.invoke(app, ["chat", "--help"])
+        assert result.exit_code == 0
+        assert "--continue" in result.output
+
+
+class TestChatsSmoke:
+    def test_chats_help(self):
+        result = runner.invoke(app, ["chats", "--help"])
+        assert result.exit_code == 0
+
+    def test_chats_list_help(self):
+        result = runner.invoke(app, ["chats", "list", "--help"])
+        assert result.exit_code == 0
+
+    def test_chats_show_help(self):
+        result = runner.invoke(app, ["chats", "show", "--help"])
+        assert result.exit_code == 0
+
