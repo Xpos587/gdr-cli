@@ -239,15 +239,43 @@ async def _test_connectivity(cookies: dict[str, str]) -> str | None:
 @app.command()
 def login(
     profile: str = typer.Option(
-        "default", "--profile", "-p", help="nlm profile to use",
+        "default", "--profile", "-p", help="Auth profile name (shared with nlm)",
+    ),
+    cdp_url: str = typer.Option(
+        "http://127.0.0.1:9222", "--cdp-url", help="Chrome CDP endpoint",
+    ),
+    launch: bool = typer.Option(
+        True, "--launch/--no-launch", "-l", help="Auto-launch Chrome if CDP not reachable",
     ),
 ):
-    """Authenticate via nlm (delegates to 'nlm login')."""
-    nlm_path = shutil.which("nlm")
-    if not nlm_path:
-        console.print("[red]Error:[/red] nlm CLI not found in PATH.")
-        console.print("Install it first: [bold]uv tool install notebooklm-mcp-cli[/bold]")
+    """Authenticate with Google via Chrome CDP (stores cookies in nlm profile dir)."""
+    from gdr_cli.cdp import login_via_cdp
+
+    console.print("[bold]GDR Login[/bold]\n")
+
+    try:
+        result = asyncio.run(
+            _async_login(profile=profile, cdp_url=cdp_url, auto_launch=launch)
+        )
+    except Exception as e:
+        console.print(f"  [red]Error:[/red] {e}")
         raise typer.Exit(1)
 
-    result = subprocess.run([nlm_path, "login", "--profile", profile])
-    raise typer.Exit(result.returncode)
+    console.print(f"  [green]OK[/green] Cookies extracted ({result['cookie_count']} cookies)")
+    if result["email"]:
+        console.print(f"  [green]OK[/green] Email: {result['email']}")
+    console.print(f"  [green]OK[/green] Saved to profile: {profile}")
+    console.print()
+
+
+async def _async_login(
+    profile: str, cdp_url: str, auto_launch: bool
+) -> dict:
+    """Run CDP login in a thread pool (CDP uses sync websocket)."""
+    import asyncio
+    from gdr_cli.cdp import login_via_cdp
+
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None, login_via_cdp, profile, cdp_url, auto_launch
+    )

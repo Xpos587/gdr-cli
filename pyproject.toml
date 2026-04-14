@@ -8,6 +8,7 @@ dependencies = [
     "gemini-webapi>=2.0.0",
     "typer>=0.15.0",
     "rich>=13.0.0",
+    "websocket-client>=1.0.0",
 ]
 
 [project.scripts]
