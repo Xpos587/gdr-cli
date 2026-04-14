@@ -13,13 +13,13 @@ Shares authentication with [notebooklm-mcp-cli](https://github.com/jacob-bd/note
 ## Install
 
 ```bash
-uv tool install git+https://github.com/<user>/gdr-cli.git
+uv tool install git+https://github.com/Xpos587/gdr-cli.git
 ```
 
 Or from source:
 
 ```bash
-git clone https://github.com/<user>/gdr-cli.git
+git clone https://github.com/Xpos587/gdr-cli.git
 cd gdr-cli
 uv sync
 uv run gdr --help
