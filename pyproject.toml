@@ -23,7 +23,7 @@ packages = ["src/gdr_cli"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
