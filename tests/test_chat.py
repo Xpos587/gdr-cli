@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from gdr_cli.chat import send_message, list_recent_chats, read_chat_history, continue_chat
+from gdr.chat import send_message, list_recent_chats, read_chat_history, continue_chat
 
 
 class TestSendMessage:
@@ -15,7 +15,7 @@ class TestSendMessage:
         mock_client.start_chat.return_value = mock_session
         mock_client.close = AsyncMock()
 
-        with patch("gdr_cli.chat._create_client", return_value=mock_client):
+        with patch("gdr.chat._create_client", return_value=mock_client):
             import asyncio
             result = asyncio.run(send_message("Hi"))
 
@@ -34,7 +34,7 @@ class TestListRecentChats:
         mock_client.list_chats.return_value = [mock_chat_info]
         mock_client.close = AsyncMock()
 
-        with patch("gdr_cli.chat._create_client", return_value=mock_client):
+        with patch("gdr.chat._create_client", return_value=mock_client):
             chats = list_recent_chats(profile="default")
 
         assert len(chats) == 1
@@ -46,7 +46,7 @@ class TestListRecentChats:
         mock_client.list_chats.return_value = []
         mock_client.close = AsyncMock()
 
-        with patch("gdr_cli.chat._create_client", return_value=mock_client):
+        with patch("gdr.chat._create_client", return_value=mock_client):
             chats = list_recent_chats(profile="default")
 
         assert chats == []
@@ -64,7 +64,7 @@ class TestReadChatHistory:
         mock_client.read_chat = AsyncMock(return_value=mock_history)
         mock_client.close = AsyncMock()
 
-        with patch("gdr_cli.chat._create_client", return_value=mock_client):
+        with patch("gdr.chat._create_client", return_value=mock_client):
             import asyncio
             history = asyncio.run(read_chat_history("c_abc123", profile="default"))
 
@@ -77,7 +77,7 @@ class TestReadChatHistory:
         mock_client.read_chat = AsyncMock(return_value=None)
         mock_client.close = AsyncMock()
 
-        with patch("gdr_cli.chat._create_client", return_value=mock_client):
+        with patch("gdr.chat._create_client", return_value=mock_client):
             import asyncio
             history = asyncio.run(read_chat_history("c_nonexistent", profile="default"))
 
@@ -98,7 +98,7 @@ class TestContinueChat:
         mock_client.start_chat.return_value = mock_session
         mock_client.close = AsyncMock()
 
-        with patch("gdr_cli.chat._create_client", return_value=mock_client):
+        with patch("gdr.chat._create_client", return_value=mock_client):
             import asyncio
             result = asyncio.run(continue_chat("What about Germany?", metadata=["c_abc", "r_def", "rc_ghi"], profile="default"))
 
@@ -115,7 +115,7 @@ class TestContinueChat:
         mock_client.start_chat.return_value = mock_session
         mock_client.close = AsyncMock()
 
-        with patch("gdr_cli.chat._create_client", return_value=mock_client):
+        with patch("gdr.chat._create_client", return_value=mock_client):
             import asyncio
             result = asyncio.run(continue_chat("Hello", profile="default"))
 

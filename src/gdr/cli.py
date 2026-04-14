@@ -11,8 +11,8 @@ from typing import Optional
 import typer
 from rich.console import Console
 
-from gdr_cli import __version__
-from gdr_cli.exceptions import GDRError
+from gdr import __version__
+from gdr.exceptions import GDRError
 
 app = typer.Typer(
     name="gdr",
@@ -50,7 +50,7 @@ def chat(
     ),
 ):
     """Chat with Gemini. No prompt enters interactive mode."""
-    from gdr_cli.repl import run_repl
+    from gdr.repl import run_repl
 
     try:
         metadata = None
@@ -58,7 +58,7 @@ def chat(
             if continue_chat:
                 metadata = [continue_chat]
             else:
-                from gdr_cli.chat import list_recent_chats
+                from gdr.chat import list_recent_chats
                 chats = list_recent_chats(profile=profile)
                 if chats:
                     metadata = [chats[0]["cid"]]
@@ -86,7 +86,7 @@ def chats_list(
 ):
     """List recent chat conversations."""
     from datetime import datetime
-    from gdr_cli.chat import list_recent_chats
+    from gdr.chat import list_recent_chats
 
     try:
         chats = list_recent_chats(profile=profile)
@@ -127,7 +127,7 @@ def chats_show(
     ),
 ):
     """Show conversation history for a chat."""
-    from gdr_cli.chat import read_chat_history
+    from gdr.chat import read_chat_history
 
     try:
         history = asyncio.run(read_chat_history(cid, limit=limit, profile=profile))
@@ -175,7 +175,7 @@ def research(
     ),
 ):
     """Run Gemini Deep Research on a topic."""
-    from gdr_cli.research import format_result, run_deep_research
+    from gdr.research import format_result, run_deep_research
 
     try:
         result = asyncio.run(
@@ -237,8 +237,8 @@ def doctor(
     ),
 ):
     """Diagnose auth and connectivity issues."""
-    from gdr_cli.auth import AuthManager
-    from gdr_cli.config import get_cookies_file, get_metadata_file, get_profile_dir
+    from gdr.auth import AuthManager
+    from gdr.config import get_cookies_file, get_metadata_file, get_profile_dir
 
     console.print("[bold]GDR Doctor[/bold]\n")
 
@@ -340,7 +340,7 @@ def login(
     ),
 ):
     """Authenticate with Google via Chrome CDP (stores cookies in nlm profile dir)."""
-    from gdr_cli.cdp import login_via_cdp
+    from gdr.cdp import login_via_cdp
 
     console.print("[bold]GDR Login[/bold]\n")
 
@@ -363,7 +363,7 @@ async def _async_login(
     profile: str, cdp_url: str, auto_launch: bool
 ) -> dict:
     """Run CDP login in a thread pool (CDP uses sync websocket)."""
-    from gdr_cli.cdp import login_via_cdp
+    from gdr.cdp import login_via_cdp
 
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(

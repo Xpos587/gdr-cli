@@ -1,7 +1,7 @@
 """Tests for exceptions.py — custom exception hierarchy."""
 
 import pytest
-from gdr_cli.exceptions import (
+from gdr.exceptions import (
     GDRError, AuthError, ProfileNotFoundError,
     AccountMismatchError, ResearchError, RateLimitError,
 )

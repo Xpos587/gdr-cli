@@ -3,7 +3,7 @@
 import pytest
 from typer.testing import CliRunner
 from unittest.mock import patch
-from gdr_cli.cli import app
+from gdr.cli import app
 
 runner = CliRunner()
 
@@ -39,15 +39,15 @@ class TestHelp:
 
 class TestErrorHandling:
     def test_chat_auth_error_shows_hint(self):
-        from gdr_cli.exceptions import GDRError
-        with patch("gdr_cli.repl.run_repl", side_effect=GDRError("No cookies", hint="Run 'gdr login'")):
+        from gdr.exceptions import GDRError
+        with patch("gdr.repl.run_repl", side_effect=GDRError("No cookies", hint="Run 'gdr login'")):
             result = runner.invoke(app, ["chat", "hello"])
         assert result.exit_code == 2
         assert "Run 'gdr login'" in result.output
 
     def test_research_rate_limit(self):
         from gemini_webapi.exceptions import UsageLimitExceeded
-        with patch("gdr_cli.research.run_deep_research", side_effect=UsageLimitExceeded("limited")):
+        with patch("gdr.research.run_deep_research", side_effect=UsageLimitExceeded("limited")):
             result = runner.invoke(app, ["research", "test"])
         assert result.exit_code == 3
         assert "limit" in result.output.lower()

@@ -8,7 +8,7 @@ from typing import Callable
 from gemini_webapi import GeminiClient
 from gemini_webapi.types import DeepResearchPlan, DeepResearchResult, DeepResearchStatus
 
-from gdr_cli.auth import AuthManager
+from gdr.auth import AuthManager
 
 
 def _status_callback(

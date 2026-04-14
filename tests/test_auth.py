@@ -4,8 +4,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 import pytest
-from gdr_cli.auth import Profile, AuthManager
-from gdr_cli.exceptions import AuthError, ProfileNotFoundError, AccountMismatchError
+from gdr.auth import Profile, AuthManager
+from gdr.exceptions import AuthError, ProfileNotFoundError, AccountMismatchError
 
 
 class TestProfile:
@@ -94,7 +94,7 @@ class TestProfile:
 
 class TestAuthManager:
     def _make_manager(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("gdr_cli.config.get_profile_dir",
+        monkeypatch.setattr("gdr.config.get_profile_dir",
                             lambda name: tmp_path / "profiles" / name)
         return AuthManager("default")
 
@@ -138,9 +138,9 @@ class TestAuthManager:
         assert cookies["__Secure-1PSID"] == "pv"
 
     def test_delete_profile(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("gdr_cli.config.get_profile_dir",
+        monkeypatch.setattr("gdr.config.get_profile_dir",
                             lambda name: tmp_path / "profiles" / name)
-        monkeypatch.setattr("gdr_cli.config.get_profiles_dir",
+        monkeypatch.setattr("gdr.config.get_profiles_dir",
                             lambda: tmp_path / "profiles")
         mgr = AuthManager("default")
         mgr.save_profile(cookies=[{"name": "__Secure-1PSID", "value": "v"}])
@@ -149,7 +149,7 @@ class TestAuthManager:
         assert mgr.profile_exists() is False
 
     def test_list_profiles(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("gdr_cli.config.get_profiles_dir",
+        monkeypatch.setattr("gdr.config.get_profiles_dir",
                             lambda: tmp_path / "profiles")
         mgr = AuthManager("default")
         mgr.save_profile(cookies=[{"name": "__Secure-1PSID", "value": "v"}])
