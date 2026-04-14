@@ -3,11 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import re
-import shutil
-import subprocess
-import sys
 from datetime import date
 from pathlib import Path
 from typing import Optional
@@ -16,10 +12,11 @@ import typer
 from rich.console import Console
 
 from gdr_cli import __version__
+from gdr_cli.exceptions import GDRError
 
 app = typer.Typer(
     name="gdr",
-    help="Gemini CLI — chat and deep research via HTTP, shares auth with nlm",
+    help="Gemini Deep Research CLI — chat and deep research via HTTP, shares auth with nlm",
     no_args_is_help=True,
     add_completion=False,
 )
@@ -46,7 +43,7 @@ def main(
 def chat(
     prompt: str = typer.Argument(help="Message to send to Gemini"),
     profile: str = typer.Option(
-        "default", "--profile", "-p", help="nlm auth profile name",
+        "default", "--profile", "-p", help="Auth profile name",
     ),
 ):
     """Send a message to Gemini and get a response (quick test)."""
@@ -54,16 +51,12 @@ def chat(
 
     try:
         response = asyncio.run(send_message(prompt, profile=profile))
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted.[/yellow]")
-        raise typer.Exit(130)
+    except GDRError as e:
+        console.print(f"[red]Error:[/red] {e.message}")
+        if e.hint:
+            console.print(f"[dim]Hint: {e.hint}[/dim]")
+        raise typer.Exit(2)
     except Exception as e:
-        from gemini_webapi.exceptions import AuthError as GeminiAuthError
-
-        if isinstance(e, GeminiAuthError):
-            console.print(f"[red]Auth Error:[/red] {e}")
-            console.print("Run [bold]nlm login[/bold] to re-authenticate.")
-            raise typer.Exit(2)
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)
 
@@ -74,7 +67,7 @@ def chat(
 def research(
     query: str = typer.Argument(help="Research topic or question"),
     profile: str = typer.Option(
-        "default", "--profile", "-p", help="nlm auth profile name",
+        "default", "--profile", "-p", help="Auth profile name",
     ),
     timeout: int = typer.Option(
         30, "--timeout", "-t", help="Max research time in minutes",
@@ -105,16 +98,17 @@ def research(
                 auto_confirm=not no_confirm,
             )
         )
+    except GDRError as e:
+        console.print(f"[red]Error:[/red] {e.message}")
+        if e.hint:
+            console.print(f"[dim]Hint: {e.hint}[/dim]")
+        raise typer.Exit(2)
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted.[/yellow]")
         raise typer.Exit(130)
     except Exception as e:
-        from gemini_webapi.exceptions import AuthError as GeminiAuthError, UsageLimitExceeded
+        from gemini_webapi.exceptions import UsageLimitExceeded
 
-        if isinstance(e, GeminiAuthError):
-            console.print(f"[red]Auth Error:[/red] {e}")
-            console.print("Run [bold]nlm login[/bold] to re-authenticate.")
-            raise typer.Exit(2)
         if isinstance(e, UsageLimitExceeded):
             console.print("[red]Error:[/red] Deep Research usage limit exceeded.")
             console.print("Wait a while or check your Gemini Advanced subscription.")
@@ -124,7 +118,6 @@ def research(
 
     report = format_result(result)
 
-    # Determine output path
     out_path = output
     if not out_path and output_dir and result.text:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -151,19 +144,22 @@ def research(
 @app.command()
 def doctor(
     profile: str = typer.Option(
-        "default", "--profile", "-p", help="nlm auth profile to check",
+        "default", "--profile", "-p", help="Auth profile to check",
     ),
 ):
     """Diagnose auth and connectivity issues."""
+    from gdr_cli.auth import AuthManager
     from gdr_cli.config import get_cookies_file, get_metadata_file, get_profile_dir
 
     console.print("[bold]GDR Doctor[/bold]\n")
+
+    auth = AuthManager(profile)
 
     # 1. Check profile directory
     profile_dir = get_profile_dir(profile)
     if not profile_dir.exists():
         console.print(f"  [red]FAIL[/red] Profile directory not found: {profile_dir}")
-        console.print(f"  Run [bold]nlm login[/bold] first to authenticate.")
+        console.print(f"  Run [bold]gdr login[/bold] first to authenticate.")
         raise typer.Exit(1)
     console.print(f"  [green]OK[/green] Profile directory: {profile_dir}")
 
@@ -171,14 +167,19 @@ def doctor(
     cookies_file = get_cookies_file(profile)
     if not cookies_file.exists():
         console.print(f"  [red]FAIL[/red] Cookies file not found: {cookies_file}")
-        console.print(f"  Run [bold]nlm login[/bold] first.")
+        console.print(f"  Run [bold]gdr login[/bold] first.")
         raise typer.Exit(1)
 
     try:
-        from gdr_cli.auth import load_cookies
-        cookies = load_cookies(cookies_file)
-    except Exception as e:
-        console.print(f"  [red]FAIL[/red] Could not load cookies: {e}")
+        auth.load_profile()
+    except AuthError as e:
+        console.print(f"  [red]FAIL[/red] Could not load profile: {e.message}")
+        raise typer.Exit(1)
+
+    try:
+        cookies = auth.get_cookies()
+    except AuthError as e:
+        console.print(f"  [red]FAIL[/red] {e.message}")
         raise typer.Exit(1)
 
     console.print(f"  [green]OK[/green] Cookies loaded ({len(cookies)} cookies)")
@@ -194,7 +195,8 @@ def doctor(
     # 4. Check metadata
     metadata_file = get_metadata_file(profile)
     if metadata_file.exists():
-        meta = json.loads(metadata_file.read_text())
+        import json as _json
+        meta = _json.loads(metadata_file.read_text())
         email = meta.get("email", "(unknown)")
         validated = meta.get("last_validated", "(never)")
         console.print(f"  [green]OK[/green] Email: {email}")
@@ -272,7 +274,6 @@ async def _async_login(
     profile: str, cdp_url: str, auto_launch: bool
 ) -> dict:
     """Run CDP login in a thread pool (CDP uses sync websocket)."""
-    import asyncio
     from gdr_cli.cdp import login_via_cdp
 
     loop = asyncio.get_event_loop()

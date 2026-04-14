@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from gemini_webapi import GeminiClient
 
-from gdr_cli.auth import get_profile_cookies
+from gdr_cli.auth import AuthManager
 
 
 async def send_message(
@@ -13,7 +13,8 @@ async def send_message(
     timeout: float = 120,
 ) -> str:
     """Send a single message to Gemini and return the text response."""
-    cookies = get_profile_cookies(profile)
+    auth = AuthManager(profile)
+    cookies = auth.get_cookies()
 
     client = GeminiClient(
         secure_1psid=cookies.get("__Secure-1PSID"),

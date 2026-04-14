@@ -230,8 +230,6 @@ def login_via_cdp(
     Saves to ~/.notebooklm-mcp-cli/profiles/{profile}/cookies.json + metadata.json.
     """
     import urllib.request
-    from datetime import datetime
-    from gdr_cli.config import get_profile_dir
 
     # 1. Ensure CDP is reachable
     if not check_cdp(cdp_url):
@@ -313,26 +311,18 @@ def login_via_cdp(
     session_id = extract_session_id(html)
     build_label = extract_build_label(html)
 
-    # 8. Save to nlm profile directory
-    profile_dir = get_profile_dir(profile)
-    profile_dir.mkdir(parents=True, exist_ok=True)
+    # 8. Save to nlm profile directory via AuthManager
+    from gdr_cli.auth import AuthManager
 
-    # Save cookies
-    cookies_file = profile_dir / "cookies.json"
-    cookies_file.write_text(json.dumps(cookies, indent=2, ensure_ascii=False), encoding="utf-8")
-    cookies_file.chmod(0o600)
-
-    # Save metadata
-    metadata = {
-        "csrf_token": csrf_token,
-        "session_id": session_id,
-        "email": email,
-        "build_label": build_label,
-        "last_validated": datetime.now().isoformat(),
-    }
-    metadata_file = profile_dir / "metadata.json"
-    metadata_file.write_text(json.dumps(metadata, indent=2, ensure_ascii=False), encoding="utf-8")
-    metadata_file.chmod(0o600)
+    auth = AuthManager(profile)
+    auth.save_profile(
+        cookies=cookies,
+        csrf_token=csrf_token,
+        session_id=session_id,
+        email=email,
+        build_label=build_label,
+        force=True,
+    )
 
     return {
         "cookies": cookies,
