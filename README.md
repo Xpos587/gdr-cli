@@ -37,7 +37,7 @@ uv run gdr --help
 ### Login
 
 ```bash
-uv run gdr login
+gdr login
 ```
 
 Opens Chrome for Google authentication. Cookies are saved to `~/.notebooklm-mcp-cli/profiles/default/`.
@@ -46,28 +46,28 @@ Opens Chrome for Google authentication. Cookies are saved to `~/.notebooklm-mcp-
 
 ```bash
 # Auto-confirm plan (default)
-uv run gdr research "AI safety research landscape 2026"
+gdr research "AI safety research landscape 2026"
 
 # Manual plan review
-uv run gdr research "quantum computing applications" --no-confirm
+gdr research "quantum computing applications" --no-confirm
 
 # Save to file
-uv run gdr research "Rust vs Go for systems programming" -o report.md
+gdr research "Rust vs Go for systems programming" -o report.md
 
 # Custom timeout and polling
-uv run gdr research "long topic" --timeout 60 --poll 15
+gdr research "long topic" --timeout 60 --poll 15
 ```
 
 ### Chat
 
 ```bash
-uv run gdr chat "Explain the difference between TCP and UDP"
+gdr chat "Explain the difference between TCP and UDP"
 ```
 
 ### Doctor
 
 ```bash
-uv run gdr doctor
+gdr doctor
 ```
 
 Checks auth, cookies, and Gemini connectivity.
