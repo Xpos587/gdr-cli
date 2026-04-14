@@ -6,7 +6,8 @@ Shares authentication with [notebooklm-mcp-cli](https://github.com/jacob-bd/note
 ## Features
 
 - **Deep Research** — Run Gemini's multi-source deep research investigations
-- **Chat** — Quick single-message chat with Gemini
+- **Chat** — Interactive REPL and single-message chat with Gemini
+- **Session Management** — List, view, and continue past conversations
 - **Shared Auth** — Login once, use with both gdr and nlm
 - **CDP Login** — Browser-based authentication via Chrome DevTools Protocol
 
@@ -45,23 +46,39 @@ Opens Chrome for Google authentication. Cookies are saved to `~/.notebooklm-mcp-
 ### Deep Research
 
 ```bash
-# Auto-confirm plan (default)
 gdr research "AI safety research landscape 2026"
-
-# Manual plan review
 gdr research "quantum computing applications" --no-confirm
-
-# Save to file
 gdr research "Rust vs Go for systems programming" -o report.md
-
-# Custom timeout and polling
 gdr research "long topic" --timeout 60 --poll 15
 ```
 
 ### Chat
 
 ```bash
+# Interactive REPL
+gdr chat
+
+# Single message
 gdr chat "Explain the difference between TCP and UDP"
+
+# Continue last conversation
+gdr chat -c
+
+# Continue specific conversation
+gdr chat -c <chat-id>
+```
+
+### Session Management
+
+```bash
+# List recent chats
+gdr chats list
+
+# View conversation history
+gdr chats show <chat-id>
+
+# Limit turns displayed
+gdr chats show <chat-id> -n 10
 ```
 
 ### Doctor
@@ -77,7 +94,9 @@ Checks auth, cookies, and Gemini connectivity.
 | Command | Description |
 |---------|-------------|
 | `gdr research <query>` | Run Deep Research on a topic |
-| `gdr chat <prompt>` | Send a message to Gemini |
+| `gdr chat [prompt]` | Interactive chat REPL or single message |
+| `gdr chats list` | List recent chat sessions |
+| `gdr chats show <cid>` | View conversation history |
 | `gdr login` | Authenticate via Chrome CDP |
 | `gdr doctor` | Diagnose auth and connectivity |
 
@@ -86,6 +105,10 @@ Checks auth, cookies, and Gemini connectivity.
 - `--profile, -p` — Auth profile name (default: `default`)
 - `--version, -v` — Show version
 
+### Chat Options
+
+- `--continue, -c [CID]` — Continue a chat (omit CID for last chat)
+
 ### Research Options
 
 - `--timeout, -t` — Max research time in minutes (default: 30)
@@ -93,6 +116,10 @@ Checks auth, cookies, and Gemini connectivity.
 - `--no-confirm, -n` — Show plan and wait for manual confirmation
 - `--output, -o` — Write report to file
 - `--output-dir` — Auto-save to `DIR/{date}-{slug}.md`
+
+### Chats Show Options
+
+- `--limit, -n` — Number of turns to display (default: 20)
 
 ## Auth Sharing with nlm
 
