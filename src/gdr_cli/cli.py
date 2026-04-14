@@ -12,7 +12,7 @@ import typer
 from rich.console import Console
 
 from gdr_cli import __version__
-from gdr_cli.exceptions import AuthError, ProfileNotFoundError, ResearchError
+from gdr_cli.exceptions import GDRError
 
 app = typer.Typer(
     name="gdr",
@@ -51,8 +51,8 @@ def chat(
 
     try:
         response = asyncio.run(send_message(prompt, profile=profile))
-    except AuthError as e:
-        console.print(f"[red]Auth Error:[/red] {e.message}")
+    except GDRError as e:
+        console.print(f"[red]Error:[/red] {e.message}")
         if e.hint:
             console.print(f"[dim]Hint: {e.hint}[/dim]")
         raise typer.Exit(2)
@@ -98,8 +98,8 @@ def research(
                 auto_confirm=not no_confirm,
             )
         )
-    except AuthError as e:
-        console.print(f"[red]Auth Error:[/red] {e.message}")
+    except GDRError as e:
+        console.print(f"[red]Error:[/red] {e.message}")
         if e.hint:
             console.print(f"[dim]Hint: {e.hint}[/dim]")
         raise typer.Exit(2)

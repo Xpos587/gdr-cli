@@ -39,8 +39,8 @@ class TestHelp:
 
 class TestErrorHandling:
     def test_chat_auth_error_shows_hint(self):
-        from gdr_cli.exceptions import AuthError
-        with patch("gdr_cli.chat.send_message", side_effect=AuthError("No cookies", hint="Run 'gdr login'")):
+        from gdr_cli.exceptions import GDRError
+        with patch("gdr_cli.chat.send_message", side_effect=GDRError("No cookies", hint="Run 'gdr login'")):
             result = runner.invoke(app, ["chat", "hello"])
         assert result.exit_code == 2
         assert "Run 'gdr login'" in result.output
