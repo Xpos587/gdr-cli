@@ -19,7 +19,7 @@ from gdr_cli import __version__
 
 app = typer.Typer(
     name="gdr",
-    help="Gemini Deep Research CLI — HTTP-based, shares auth with nlm",
+    help="Gemini CLI — chat and deep research via HTTP, shares auth with nlm",
     no_args_is_help=True,
     add_completion=False,
 )
@@ -40,6 +40,34 @@ def main(
     ),
 ):
     pass
+
+
+@app.command()
+def chat(
+    prompt: str = typer.Argument(help="Message to send to Gemini"),
+    profile: str = typer.Option(
+        "default", "--profile", "-p", help="nlm auth profile name",
+    ),
+):
+    """Send a message to Gemini and get a response (quick test)."""
+    from gdr_cli.chat import send_message
+
+    try:
+        response = asyncio.run(send_message(prompt, profile=profile))
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted.[/yellow]")
+        raise typer.Exit(130)
+    except Exception as e:
+        from gemini_webapi.exceptions import AuthError as GeminiAuthError
+
+        if isinstance(e, GeminiAuthError):
+            console.print(f"[red]Auth Error:[/red] {e}")
+            console.print("Run [bold]nlm login[/bold] to re-authenticate.")
+            raise typer.Exit(2)
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+    console.print(response)
 
 
 @app.command()
