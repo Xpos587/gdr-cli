@@ -8,14 +8,13 @@ from typing import Callable
 from gemini_webapi import GeminiClient
 from gemini_webapi.types import DeepResearchPlan, DeepResearchResult, DeepResearchStatus
 
-from gdr_cli.auth import AuthError, get_profile_cookies
+from gdr_cli.auth import AuthManager
 
 
 def _status_callback(
     plan: DeepResearchPlan,
     on_status: Callable[[DeepResearchStatus], None] | None,
 ) -> Callable[[DeepResearchStatus], None]:
-    """Build a status callback that prints progress."""
     def _callback(status: DeepResearchStatus) -> None:
         state_label = status.state.upper()
         title = status.title or plan.title or "Research"
@@ -36,16 +35,14 @@ async def run_deep_research(
     auto_confirm: bool = True,
     on_status: Callable[[DeepResearchStatus], None] | None = None,
 ) -> DeepResearchResult:
-    """Run a full deep research cycle: plan -> confirm -> poll -> result.
+    """Run a full deep research cycle: plan -> confirm -> poll -> result."""
+    auth = AuthManager(profile)
+    cookies = auth.get_cookies()
 
-    Reads cookies from the nlm profile directory. No browser needed.
-    """
-    cookies = get_profile_cookies(profile)
-
-    psid = cookies.get("__Secure-1PSID")
-    psidts = cookies.get("__Secure-1PSIDTS")
-
-    client = GeminiClient(secure_1psid=psid, secure_1psidts=psidts)
+    client = GeminiClient(
+        secure_1psid=cookies.get("__Secure-1PSID"),
+        secure_1psidts=cookies.get("__Secure-1PSIDTS"),
+    )
     await client.init(timeout=timeout_min * 60)
 
     try:

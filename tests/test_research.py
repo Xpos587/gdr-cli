@@ -1,7 +1,7 @@
 """Tests for research.py — orchestration (mocked GeminiClient)."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch, MagicMock
 from gdr_cli.research import run_deep_research, format_result
 
 
@@ -43,10 +43,11 @@ class TestFormatResult:
 
 
 class TestRunDeepResearch:
-    def test_raises_auth_error_on_bad_cookies(self):
-        from gdr_cli.auth import AuthError
+    def test_raises_auth_error_on_missing_profile(self):
+        from gdr_cli.auth import AuthManager
+        from gdr_cli.exceptions import ProfileNotFoundError
         import asyncio
 
-        with patch("gdr_cli.research.get_profile_cookies", side_effect=AuthError("no cookies")):
-            with pytest.raises(AuthError):
+        with patch.object(AuthManager, "get_cookies", side_effect=ProfileNotFoundError("default")):
+            with pytest.raises(ProfileNotFoundError):
                 asyncio.run(run_deep_research("test query"))
