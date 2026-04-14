@@ -249,7 +249,13 @@ def login(
     ),
 ):
     """Authenticate with Google via Chrome CDP (stores cookies in nlm profile dir)."""
+    import shutil
     from gdr_cli.cdp import login_via_cdp
+
+    # Clear stale gemini_webapi cookie cache to avoid auth issues
+    cache_dir = Path("/tmp/gemini_webapi")
+    if cache_dir.exists():
+        shutil.rmtree(cache_dir, ignore_errors=True)
 
     console.print("[bold]GDR Login[/bold]\n")
 

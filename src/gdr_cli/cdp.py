@@ -281,10 +281,30 @@ def login_via_cdp(
             break
         time.sleep(1)
 
-    # 6. Extract cookies
-    cookies = get_all_cookies(ws_url)
-    if not cookies:
+    # 6. Extract cookies — filter to .google.com only, deduplicate
+    # Network.getAllCookies returns cookies from ALL domains (.youtube.com,
+    # .google.de, etc.). Duplicates with different domains cause auth issues
+    # when gemini_webapi picks the wrong value.
+    all_cookies = get_all_cookies(ws_url)
+    if not all_cookies:
         raise RuntimeError("No cookies extracted — make sure you're logged in.")
+
+    # Keep .google.com domain cookies, prefer / path over specific paths
+    seen: dict[str, dict] = {}
+    for c in all_cookies:
+        domain = c.get("domain", "")
+        if not domain.endswith(".google.com"):
+            continue
+        name = c["name"]
+        existing = seen.get(name)
+        if existing is None:
+            seen[name] = c
+        elif domain == ".google.com" and existing.get("domain") != ".google.com":
+            seen[name] = c  # Prefer exact .google.com over subdomains
+        elif c.get("path", "/") == "/" and existing.get("path", "/") != "/":
+            seen[name] = c  # Prefer root path
+
+    cookies = list(seen.values())
 
     # 7. Extract metadata from page
     html = get_page_html(ws_url)
