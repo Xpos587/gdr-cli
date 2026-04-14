@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from gdr.exceptions import AuthError, AccountMismatchError, ProfileNotFoundError
+from exceptions import AuthError, AccountMismatchError, ProfileNotFoundError
 
 
 @dataclass
@@ -92,7 +92,7 @@ class AuthManager:
 
     @property
     def profile_dir(self) -> Path:
-        from gdr.config import get_profile_dir
+        from config import get_profile_dir
         return get_profile_dir(self.profile_name)
 
     @property
@@ -187,7 +187,7 @@ class AuthManager:
         return self._profile
 
     def delete_profile(self) -> None:
-        from gdr.config import get_profiles_dir
+        from config import get_profiles_dir
         profile_path = get_profiles_dir() / self.profile_name
         if profile_path.exists():
             shutil.rmtree(profile_path)
@@ -198,7 +198,7 @@ class AuthManager:
 
     @staticmethod
     def list_profiles() -> list[str]:
-        from gdr.config import get_profiles_dir
+        from config import get_profiles_dir
         profiles_dir = get_profiles_dir()
         if not profiles_dir.exists():
             return []

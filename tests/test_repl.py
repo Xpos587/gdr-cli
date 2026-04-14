@@ -3,12 +3,12 @@
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
-from gdr.repl import ChatRepl
+from repl import ChatRepl
 
 
 class TestChatReplInit:
     def test_creates_repl_with_defaults(self):
-        with patch("gdr.repl._create_client") as mock_create:
+        with patch("repl._create_client") as mock_create:
             mock_client = MagicMock()
             mock_session = MagicMock()
             mock_client.start_chat.return_value = mock_session
@@ -18,7 +18,7 @@ class TestChatReplInit:
             mock_create.assert_not_called()  # Lazy init
 
     def test_start_creates_client(self):
-        with patch("gdr.repl._create_client") as mock_create:
+        with patch("repl._create_client") as mock_create:
             mock_client = MagicMock()
             mock_session = MagicMock()
             mock_client.start_chat.return_value = mock_session
@@ -31,7 +31,7 @@ class TestChatReplInit:
             mock_client.start_chat.assert_called_once()
 
     def test_start_with_metadata(self):
-        with patch("gdr.repl._create_client") as mock_create:
+        with patch("repl._create_client") as mock_create:
             mock_client = MagicMock()
             mock_session = MagicMock()
             mock_client.start_chat.return_value = mock_session
@@ -43,7 +43,7 @@ class TestChatReplInit:
             mock_client.start_chat.assert_called_once_with(metadata=["c_abc", "r_def", "rc_ghi"])
 
     def test_cid_returns_session_cid(self):
-        with patch("gdr.repl._create_client") as mock_create:
+        with patch("repl._create_client") as mock_create:
             mock_client = MagicMock()
             mock_session = MagicMock()
             mock_session.cid = "c_abc123"
@@ -62,7 +62,7 @@ class TestChatReplInit:
 
 class TestChatReplSend:
     def test_send_message_updates_metadata(self):
-        with patch("gdr.repl._create_client") as mock_create:
+        with patch("repl._create_client") as mock_create:
             mock_client = MagicMock()
             mock_session = MagicMock()
             mock_output = MagicMock()
@@ -84,7 +84,7 @@ class TestChatReplSend:
             assert repl._turn_count == 1
 
     def test_send_empty_raises(self):
-        with patch("gdr.repl._create_client") as mock_create:
+        with patch("repl._create_client") as mock_create:
             mock_client = MagicMock()
             mock_client.start_chat.return_value = MagicMock()
             mock_create.return_value = mock_client
@@ -96,7 +96,7 @@ class TestChatReplSend:
                 asyncio.run(repl.send(""))
 
     def test_send_increments_turn_count(self):
-        with patch("gdr.repl._create_client") as mock_create:
+        with patch("repl._create_client") as mock_create:
             mock_client = MagicMock()
             mock_session = MagicMock()
             mock_output = MagicMock()
@@ -116,7 +116,7 @@ class TestChatReplSend:
 
 class TestChatReplClose:
     def test_close_clears_client(self):
-        with patch("gdr.repl._create_client") as mock_create:
+        with patch("repl._create_client") as mock_create:
             mock_client = MagicMock()
             mock_client.close = AsyncMock()
             mock_client.start_chat.return_value = MagicMock()

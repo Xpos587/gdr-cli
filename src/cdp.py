@@ -312,7 +312,7 @@ def login_via_cdp(
     build_label = extract_build_label(html)
 
     # 8. Save to nlm profile directory via AuthManager
-    from gdr.auth import AuthManager
+    from auth import AuthManager
 
     auth = AuthManager(profile)
     auth.save_profile(

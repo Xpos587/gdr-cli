@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import patch, MagicMock
-from gdr.research import run_deep_research, format_result
+from research import run_deep_research, format_result
 
 
 class TestFormatResult:
@@ -44,8 +44,8 @@ class TestFormatResult:
 
 class TestRunDeepResearch:
     def test_raises_auth_error_on_missing_profile(self):
-        from gdr.auth import AuthManager
-        from gdr.exceptions import ProfileNotFoundError
+        from auth import AuthManager
+        from exceptions import ProfileNotFoundError
         import asyncio
 
         with patch.object(AuthManager, "get_cookies", side_effect=ProfileNotFoundError("default")):

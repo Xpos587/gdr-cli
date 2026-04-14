@@ -9,7 +9,7 @@ from typing import Any
 from rich.console import Console
 from rich.markdown import Markdown
 
-from gdr.chat import _create_client
+from chat import _create_client
 
 console = Console(stderr=True)
 

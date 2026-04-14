@@ -10,7 +10,7 @@ from typing import Any
 
 from gemini_webapi import GeminiClient
 
-from gdr.auth import AuthManager
+from auth import AuthManager
 
 
 async def _create_client(profile: str = "default", timeout: float = 120) -> GeminiClient:
