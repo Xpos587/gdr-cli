@@ -113,7 +113,7 @@ Checks auth, cookies, and Gemini connectivity.
 
 - `--timeout, -t` — Max research time in minutes (default: 30)
 - `--poll` — Status polling interval in seconds (default: 10)
-- `--no-confirm, -n` — Show plan and wait for manual confirmation
+- `--no-confirm, -n` — Skip plan confirmation and start immediately
 - `--output, -o` — Write report to file
 - `--output-dir` — Auto-save to `DIR/{date}-{slug}.md`
 

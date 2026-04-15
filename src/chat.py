@@ -71,7 +71,7 @@ async def continue_chat(
         await client.close()
 
 
-def list_recent_chats(
+async def list_recent_chats(
     profile: str = "default",
     timeout: float = 30,
 ) -> list[dict[str, Any]]:
@@ -79,8 +79,7 @@ def list_recent_chats(
 
     Returns list of dicts with keys: cid, title, is_pinned, timestamp.
     """
-    import asyncio
-    client = asyncio.run(_create_client(profile, timeout))
+    client = await _create_client(profile, timeout)
 
     try:
         chats = client.list_chats()
@@ -97,7 +96,7 @@ def list_recent_chats(
             for c in chats
         ]
     finally:
-        asyncio.run(client.close())
+        await client.close()
 
 
 async def read_chat_history(

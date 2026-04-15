@@ -12,7 +12,7 @@ import typer
 from rich.console import Console
 
 __version__ = "0.1.0"
-from exceptions import GDRError
+from exceptions import GDRError, AuthError
 
 app = typer.Typer(
     name="gdr",
@@ -35,8 +35,16 @@ def main(
         False, "--version", "-v", callback=version_callback, is_eager=True,
         help="Show version and exit",
     ),
+    debug: bool = typer.Option(
+        False, "--debug", "-d", help="Enable debug logging from gemini_webapi",
+    ),
 ):
-    pass
+    if not debug:
+        from loguru import logger
+        logger.remove()
+    else:
+        from gemini_webapi import set_log_level
+        set_log_level("DEBUG")
 
 
 @app.command()
@@ -59,7 +67,7 @@ def chat(
                 metadata = [continue_chat]
             else:
                 from chat import list_recent_chats
-                chats = list_recent_chats(profile=profile)
+                chats = asyncio.run(list_recent_chats(profile=profile))
                 if chats:
                     metadata = [chats[0]["cid"]]
 
@@ -89,7 +97,7 @@ def chats_list(
     from chat import list_recent_chats
 
     try:
-        chats = list_recent_chats(profile=profile)
+        chats = asyncio.run(list_recent_chats(profile=profile))
     except GDRError as e:
         console.print(f"[red]Error:[/red] {e.message}")
         if e.hint:
@@ -111,7 +119,10 @@ def chats_list(
     for i, c in enumerate(chats, 1):
         dt = datetime.fromtimestamp(c["timestamp"]).strftime("%Y-%m-%d %H:%M")
         pin = "* " if c.get("is_pinned") else ""
-        table.add_row(str(i), f"{pin}{c['title']}", c["cid"][:16] + "...", dt)
+        title = c["title"] or "(untitled)"
+        if len(title) > 50:
+            title = title[:47] + "..."
+        table.add_row(str(i), f"{pin}{title}", c["cid"][:16] + "...", dt)
 
     console.print(table)
 
@@ -165,7 +176,7 @@ def research(
         10.0, "--poll", help="Status polling interval in seconds",
     ),
     no_confirm: bool = typer.Option(
-        False, "--no-confirm", "-n", help="Show plan and wait for manual confirmation",
+        False, "--no-confirm", "-n", help="Skip plan confirmation and start research immediately",
     ),
     output: Optional[Path] = typer.Option(
         None, "--output", "-o", help="Write report to file",
@@ -184,7 +195,7 @@ def research(
                 profile=profile,
                 timeout_min=timeout,
                 poll_interval=poll_interval,
-                auto_confirm=not no_confirm,
+                auto_confirm=no_confirm,
             )
         )
     except GDRError as e:

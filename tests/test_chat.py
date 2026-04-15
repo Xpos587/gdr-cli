@@ -1,8 +1,9 @@
 """Tests for chat.py — session management, multi-turn, listing."""
 
 import pytest
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
-from chat import send_message, list_recent_chats, read_chat_history, continue_chat
+from chat import send_message, list_recent_chats, read_chat_history, continue_chat, delete_chat
 
 
 class TestSendMessage:
@@ -16,11 +17,38 @@ class TestSendMessage:
         mock_client.close = AsyncMock()
 
         with patch("chat._create_client", return_value=mock_client):
-            import asyncio
             result = asyncio.run(send_message("Hi"))
 
         assert result == "Hello!"
         mock_client.close.assert_called_once()
+
+    def test_returns_empty_when_no_text(self):
+        mock_client = MagicMock()
+        mock_session = MagicMock()
+        mock_output = MagicMock()
+        mock_output.text = None
+        mock_session.send_message = AsyncMock(return_value=mock_output)
+        mock_client.start_chat.return_value = mock_session
+        mock_client.close = AsyncMock()
+
+        with patch("chat._create_client", return_value=mock_client):
+            result = asyncio.run(send_message("Hi"))
+
+        assert result == ""
+
+    def test_passes_profile_and_timeout(self):
+        mock_client = MagicMock()
+        mock_session = MagicMock()
+        mock_output = MagicMock()
+        mock_output.text = "ok"
+        mock_session.send_message = AsyncMock(return_value=mock_output)
+        mock_client.start_chat.return_value = mock_session
+        mock_client.close = AsyncMock()
+
+        with patch("chat._create_client", return_value=mock_client) as mock_create:
+            asyncio.run(send_message("Hi", profile="work", timeout=60))
+
+        mock_create.assert_called_once_with("work", 60)
 
 
 class TestListRecentChats:
@@ -35,7 +63,7 @@ class TestListRecentChats:
         mock_client.close = AsyncMock()
 
         with patch("chat._create_client", return_value=mock_client):
-            chats = list_recent_chats(profile="default")
+            chats = asyncio.run(list_recent_chats(profile="default"))
 
         assert len(chats) == 1
         assert chats[0]["cid"] == "c_abc123"
@@ -47,9 +75,34 @@ class TestListRecentChats:
         mock_client.close = AsyncMock()
 
         with patch("chat._create_client", return_value=mock_client):
-            chats = list_recent_chats(profile="default")
+            chats = asyncio.run(list_recent_chats(profile="default"))
 
         assert chats == []
+
+    def test_passes_profile_and_timeout(self):
+        mock_client = MagicMock()
+        mock_client.list_chats.return_value = []
+        mock_client.close = AsyncMock()
+
+        with patch("chat._create_client", return_value=mock_client) as mock_create:
+            asyncio.run(list_recent_chats(profile="work", timeout=45))
+
+        mock_create.assert_called_once_with("work", 45)
+
+    def test_handles_none_title(self):
+        mock_client = MagicMock()
+        mock_chat_info = MagicMock()
+        mock_chat_info.cid = "c_abc"
+        mock_chat_info.title = None
+        mock_chat_info.is_pinned = False
+        mock_chat_info.timestamp = 1745000000.0
+        mock_client.list_chats.return_value = [mock_chat_info]
+        mock_client.close = AsyncMock()
+
+        with patch("chat._create_client", return_value=mock_client):
+            chats = asyncio.run(list_recent_chats(profile="default"))
+
+        assert chats[0]["title"] is None
 
 
 class TestReadChatHistory:
@@ -65,7 +118,6 @@ class TestReadChatHistory:
         mock_client.close = AsyncMock()
 
         with patch("chat._create_client", return_value=mock_client):
-            import asyncio
             history = asyncio.run(read_chat_history("c_abc123", profile="default"))
 
         assert history["cid"] == "c_abc123"
@@ -78,10 +130,35 @@ class TestReadChatHistory:
         mock_client.close = AsyncMock()
 
         with patch("chat._create_client", return_value=mock_client):
-            import asyncio
             history = asyncio.run(read_chat_history("c_nonexistent", profile="default"))
 
         assert history is None
+
+    def test_passes_limit(self):
+        mock_client = MagicMock()
+        mock_history = MagicMock()
+        mock_history.cid = "c_abc"
+        mock_history.turns = []
+        mock_client.read_chat = AsyncMock(return_value=mock_history)
+        mock_client.close = AsyncMock()
+
+        with patch("chat._create_client", return_value=mock_client):
+            asyncio.run(read_chat_history("c_abc", limit=5, profile="default"))
+
+        mock_client.read_chat.assert_called_once_with("c_abc", limit=5)
+
+    def test_passes_profile_and_timeout(self):
+        mock_client = MagicMock()
+        mock_history = MagicMock()
+        mock_history.cid = "c_abc"
+        mock_history.turns = []
+        mock_client.read_chat = AsyncMock(return_value=mock_history)
+        mock_client.close = AsyncMock()
+
+        with patch("chat._create_client", return_value=mock_client) as mock_create:
+            asyncio.run(read_chat_history("c_abc", profile="work", timeout=60))
+
+        mock_create.assert_called_once_with("work", 60)
 
 
 class TestContinueChat:
@@ -99,7 +176,6 @@ class TestContinueChat:
         mock_client.close = AsyncMock()
 
         with patch("chat._create_client", return_value=mock_client):
-            import asyncio
             result = asyncio.run(continue_chat("What about Germany?", metadata=["c_abc", "r_def", "rc_ghi"], profile="default"))
 
         assert result == "The capital is Berlin."
@@ -116,8 +192,44 @@ class TestContinueChat:
         mock_client.close = AsyncMock()
 
         with patch("chat._create_client", return_value=mock_client):
-            import asyncio
             result = asyncio.run(continue_chat("Hello", profile="default"))
 
         assert result == "New chat."
         mock_client.start_chat.assert_called_once_with()
+
+    def test_returns_empty_when_no_text(self):
+        mock_client = MagicMock()
+        mock_session = MagicMock()
+        mock_output = MagicMock()
+        mock_output.text = None
+        mock_output.metadata = ["c", "r", "rc"]
+        mock_session.send_message = AsyncMock(return_value=mock_output)
+        mock_client.start_chat.return_value = mock_session
+        mock_client.close = AsyncMock()
+
+        with patch("chat._create_client", return_value=mock_client):
+            result = asyncio.run(continue_chat("Hi", profile="default"))
+
+        assert result == ""
+
+
+class TestDeleteChat:
+    def test_deletes_chat(self):
+        mock_client = MagicMock()
+        mock_client.delete_chat = AsyncMock()
+        mock_client.close = AsyncMock()
+
+        with patch("chat._create_client", return_value=mock_client):
+            asyncio.run(delete_chat("c_abc123", profile="default"))
+
+        mock_client.delete_chat.assert_called_once_with("c_abc123")
+
+    def test_passes_profile(self):
+        mock_client = MagicMock()
+        mock_client.delete_chat = AsyncMock()
+        mock_client.close = AsyncMock()
+
+        with patch("chat._create_client", return_value=mock_client) as mock_create:
+            asyncio.run(delete_chat("c_abc", profile="work"))
+
+        mock_create.assert_called_once_with("work", 30)
