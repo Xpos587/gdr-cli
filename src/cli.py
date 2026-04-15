@@ -17,6 +17,54 @@ from exceptions import GDRError, AuthError
 _CID_PREFIX = "c_"
 
 
+async def _probe_models(profile: str = "default") -> dict:
+    """Probe which models are available for the account via RPC."""
+    from gemini_webapi.constants import GRPC, Model
+    from gemini_webapi.types import RPCData
+    from gemini_webapi.utils import extract_json_from_response, get_nested_value
+
+    from auth import AuthManager
+
+    auth = AuthManager(profile)
+    cookies = auth.get_cookies()
+
+    from gemini_webapi import GeminiClient
+    client = GeminiClient(
+        secure_1psid=cookies.get("__Secure-1PSID"),
+        secure_1psidts=cookies.get("__Secure-1PSIDTS"),
+    )
+    await client.init()
+
+    try:
+        snapshot = await client.inspect_account_status()
+
+        # Collect available model names from caps/bootstrap probes
+        available: set[str] = set()
+        dr_available = snapshot["summary"].get("deep_research_feature_present", False)
+
+        # All models if DR is available
+        if dr_available:
+            for m in Model:
+                if m.name != "UNSPECIFIED":
+                    available.add(m.value[0])  # real_name
+
+        # Infer tier from model access
+        tier = "unknown"
+        if dr_available:
+            tier = "advanced"
+        elif not dr_available:
+            # Check if basic models work by testing bootstrap rejection
+            bootstrap = snapshot["rpc"].get("bootstrap", {})
+            if bootstrap.get("ok", False):
+                tier = "plus"
+            else:
+                tier = "free"
+
+        return {"available_models": available, "tier": tier}
+    finally:
+        await client.close()
+
+
 def _display_cid(cid: str) -> str:
     """Strip c_ prefix for user-facing display."""
     return cid.removeprefix(_CID_PREFIX)
@@ -122,20 +170,37 @@ app.add_typer(chats_app, name="chats")
 
 
 @app.command()
-def models():
-    """List available Gemini models."""
+def models(
+    profile: str = typer.Option(
+        "default", "--profile", "-p", help="Auth profile name",
+    ),
+):
+    """List available Gemini models. Checks which models your account can use."""
     from gemini_webapi.constants import Model
 
-    table = Table(title="Available Models", show_header=True, header_style="bold")
+    table = Table(title="Gemini Models", show_header=True, header_style="bold")
     table.add_column("Model Name", style="cyan")
     table.add_column("Thinking")
+    table.add_column("Available", justify="center")
+
+    try:
+        snapshot = asyncio.run(_probe_models(profile))
+        available = snapshot.get("available_models", set())
+        tier = snapshot.get("tier", "unknown")
+    except Exception as e:
+        available = set()
+        tier = "unknown"
+        console.print(f"[dim]Could not probe models: {e}[/dim]\n")
 
     for m in Model:
         if m.name == "UNSPECIFIED":
             continue
         real_name, _, thinking = m.value
-        table.add_row(real_name, "Yes" if thinking else "")
+        status = "[green]Yes[/green]" if real_name in available else "[dim]No[/dim]"
+        table.add_row(real_name, "Yes" if thinking else "", status)
     console.print(table)
+    if tier != "unknown":
+        console.print(f"\n  Detected tier: [bold]{tier}[/bold]")
 
 
 @chats_app.command(name="list")
