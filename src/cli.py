@@ -121,6 +121,23 @@ chats_app = typer.Typer(help="Manage Gemini chat sessions", no_args_is_help=True
 app.add_typer(chats_app, name="chats")
 
 
+@app.command()
+def models():
+    """List available Gemini models."""
+    from gemini_webapi.constants import Model
+
+    table = Table(title="Available Models", show_header=True, header_style="bold")
+    table.add_column("Model Name", style="cyan")
+    table.add_column("Thinking")
+
+    for m in Model:
+        if m.name == "UNSPECIFIED":
+            continue
+        real_name, _, thinking = m.value
+        table.add_row(real_name, "Yes" if thinking else "")
+    console.print(table)
+
+
 @chats_app.command(name="list")
 def chats_list(
     profile: str = typer.Option(
