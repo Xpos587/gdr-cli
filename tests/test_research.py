@@ -351,6 +351,29 @@ class TestRunDeepResearch:
         # Verify deep_research=True was passed even on error
         mock_chat.send_message.assert_called_once_with("test", deep_research=True)
 
+    def test_research_rate_limit_message(self):
+        """Test that rate limit message is detected and raises GDRError."""
+        from gemini_webapi.types import ModelOutput
+        from exceptions import GDRError
+
+        mock_client = _create_mock_client_with_chat_mocks()
+
+        # Mock response with rate limit message
+        mock_output = MagicMock(spec=ModelOutput)
+        mock_output.text = "You have 3 research requests running right now, which is the maximum I can do at one time."
+        mock_output.deep_research_plan = None
+        mock_chat = MagicMock()
+        mock_chat.send_message = AsyncMock(return_value=mock_output)
+        mock_chat.cid = "c_test_limit"  # Mock CID
+        mock_client.start_chat = MagicMock(return_value=mock_chat)
+
+        with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
+            with patch("research.GeminiClient", return_value=mock_client):
+                with pytest.raises(GDRError) as exc_info:
+                    asyncio.run(run_deep_research("test"))
+
+        assert "research limit reached" in str(exc_info.value).lower()
+
     def test_passes_profile(self):
         from gemini_webapi.types import ModelOutput
 

@@ -245,6 +245,22 @@ async def run_deep_research(
         # Extract text from ModelOutput
         response_text = output.text if output else ""
 
+        # Check for rate limit message
+        if response_text and "research requests running right now" in response_text.lower():
+            from rich.panel import Panel
+            console.print(Panel(
+                "[yellow]⚠ Gemini Research Limit Reached[/yellow]\n\n"
+                "You have reached the maximum number of concurrent deep research sessions (3).\n\n"
+                "[bold]Options:[/bold]\n"
+                "• Wait for an existing research to complete\n"
+                "• Check active research in Gemini web interface\n"
+                "• Use [cyan]gdr chats list[/cyan] to see recent chats",
+                title="Rate Limited",
+                border_style="yellow",
+            ))
+            from exceptions import GDRError
+            raise GDRError("Gemini research limit reached (3 concurrent max)", hint="Wait for existing research to complete or check Gemini web interface")
+
         # Research is done if: no plan (regular chat), or plan with research_id (we polled it)
         is_done = research_id is None  # No plan = regular chat = done
         if research_id and auto_confirm:
