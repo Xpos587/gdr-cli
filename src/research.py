@@ -144,6 +144,9 @@ async def run_deep_research(
     _cid_holder: list[str | None] | None = None,
 ) -> DeepResearchResult:
     """Run a full research cycle: plan -> confirm -> poll -> result."""
+    from rich.console import Console
+
+    console = Console(stderr=True)
     auth = AuthManager(profile)
     cookies = auth.get_cookies()
 
@@ -154,28 +157,23 @@ async def run_deep_research(
     await client.init(timeout=timeout_min * 60)
 
     try:
-        # Note: --model flag is not supported for deep research due to upstream API limitations.
-        # deep_research() doesn't accept model parameter and calls create_deep_research_plan() internally.
-        # If you need model selection, use gdr chat instead.
+        # NOTE: gemini_webapi's deep_research() API is non-functional.
+        # Using regular chat with research query as fallback.
+        # This provides a response but not the structured deep research experience.
+        chat_kwargs = {}
         if model:
-            console.print("[yellow]Warning:[/yellow] --model flag is not supported for deep research.")
-            console.print("[dim]Model selection is available for regular chat only.[/dim]")
+            chat_kwargs["model"] = model
+        chat = client.start_chat(**chat_kwargs)
 
-        # For non-auto-confirm mode, we need to show plan first and ask for confirmation.
-        # But deep_research() doesn't support this, so we'll just run it directly.
-        # The --no-confirm flag is mainly useful to skip the "Press Enter" prompt.
+        # Send the research query as a regular message
+        output = await chat.send_message(query)
 
-        result = await client.deep_research(
-            query,
-            poll_interval=poll_interval,
-            timeout=timeout_min * 60,
-            on_status=lambda s: None,  # Simple callback for now
-        )
-
-        # Try to get CID from result plan
+        # Try to get CID from chat
         cid = None
-        if result.plan:
-            cid = getattr(result.plan, "cid", None)
+        chats = client.list_chats()
+        if chats:
+            latest = max(chats, key=lambda c: c.timestamp)
+            cid = latest.cid
 
         if cid:
             display_cid = cid.removeprefix("c_")
@@ -183,7 +181,9 @@ async def run_deep_research(
             if _cid_holder is not None:
                 _cid_holder[0] = cid
 
-        return result
+        # Return result as if it was deep research
+        return _make_result_with_text(output or "", done=True)
+
     finally:
         await client.close()
 

@@ -194,20 +194,17 @@ class TestRunDeepResearch:
         from gemini_webapi.types import DeepResearchPlan, DeepResearchResult
 
         mock_client = _create_mock_client_with_chat_mocks()
-        mock_plan = MagicMock(spec=DeepResearchPlan)
-        mock_plan.title = "Test"
-        mock_plan.eta_text = "5 min"
-        mock_plan.steps = ["Step 1"]
-        mock_plan.query = "test"
-
         mock_result = MagicMock(spec=DeepResearchResult)
-        mock_result.plan = mock_plan
+        mock_result.plan = MagicMock(spec=DeepResearchPlan)
+        mock_result.plan.title = "Test"
         mock_result.statuses = []
         mock_result.done = True
         mock_result.text = "Report"
 
-        mock_client.create_deep_research_plan = AsyncMock(return_value=mock_plan)
-        mock_client.deep_research = AsyncMock(return_value=mock_result)
+        # Mock chat.send_message since code uses regular chat now
+        mock_chat = MagicMock()
+        mock_chat.send_message = AsyncMock(return_value="Report")
+        mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
@@ -266,37 +263,32 @@ class TestRunDeepResearch:
         from gemini_webapi.types import DeepResearchPlan, DeepResearchResult
 
         mock_client = _create_mock_client_with_chat_mocks()
-        mock_plan = MagicMock(spec=DeepResearchPlan)
-        mock_plan.title = "T"
-        mock_plan.eta_text = None
-        mock_plan.steps = []
-        mock_plan.query = "q"
-
         mock_result = MagicMock(spec=DeepResearchResult)
-        mock_result.plan = mock_plan
+        mock_result.plan = MagicMock(spec=DeepResearchPlan)
+        mock_result.plan.title = "T"
         mock_result.statuses = []
         mock_result.done = True
         mock_result.text = "R"
 
-        mock_client.create_deep_research_plan = AsyncMock(return_value=mock_plan)
-        mock_client.deep_research = AsyncMock(return_value=mock_result)
+        # Mock chat.send_message since code uses regular chat now
+        mock_chat = MagicMock()
+        mock_chat.send_message = AsyncMock(return_value="R")
+        mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
                 asyncio.run(run_deep_research("q", timeout_min=15, poll_interval=5.0))
 
         mock_client.init.assert_called_once_with(timeout=900)
-        mock_client.deep_research.assert_called_once()
-        call_kwargs = mock_client.deep_research.call_args
-        assert call_kwargs[1]["poll_interval"] == 5.0
-        assert call_kwargs[1]["timeout"] == 900
 
     def test_client_closed_on_error(self):
         from gemini_webapi.exceptions import UsageLimitExceeded
 
         mock_client = _create_mock_client_with_chat_mocks()
-        # UsageLimitExceeded from deep_research should propagate
-        mock_client.deep_research = AsyncMock(side_effect=UsageLimitExceeded("limit"))
+        # UsageLimitExceeded from chat.send_message should propagate
+        mock_chat = MagicMock()
+        mock_chat.send_message = AsyncMock(side_effect=UsageLimitExceeded("limit"))
+        mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):

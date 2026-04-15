@@ -9,8 +9,7 @@ Shares authentication with [notebooklm-mcp-cli](https://github.com/jacob-bd/note
 
 ## Features
 
-- **Deep Research** — Run Gemini's multi-source deep research investigations
-- **Fallback Extraction** — Automatically extracts research reports from chat history when upstream parsing fails
+- **Deep Research** — Run Gemini's multi-source deep research investigations (currently uses regular chat due to upstream API limitations)
 - **Chat** — Interactive REPL and single-message chat with Gemini (works in non-interactive environments)
 - **Session Management** — List, view, and continue past conversations
 - **Model Selection** — Choose specific Gemini models, check availability and subscription tier
@@ -155,6 +154,10 @@ gdr-cli stores authentication in the same directory as notebooklm-mcp-cli:
 ```
 
 Login once with either tool, both can use the same Google cookies.
+
+## Known Limitations
+
+**Deep Research API Status**: The `gemini_webapi` library's `deep_research()` and `create_deep_research_plan()` APIs are currently non-functional (they hang indefinitely). As a workaround, `gdr research` uses regular chat with your research query. This still provides helpful responses, but lacks the structured deep research experience (planning, status updates, multi-step investigation). This will be fixed once the upstream library is updated.
 
 ## License
 
