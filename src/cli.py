@@ -181,7 +181,7 @@ def models(
 
     table = Table(title="Gemini Models", show_header=True, header_style="bold")
     table.add_column("Model Name", style="cyan")
-    table.add_column("Thinking")
+    table.add_column("Advanced", justify="center")
     table.add_column("Available", justify="center")
 
     try:
