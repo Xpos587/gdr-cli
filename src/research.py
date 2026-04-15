@@ -186,6 +186,14 @@ async def run_deep_research(
             print(f"  [bold]Starting research:[/bold] {plan.title or query}", file=sys.stderr)
             output = await chat.send_message(confirm_prompt, deep_research=True)
 
+            # Try to get research_id from the confirmation response
+            if not research_id:
+                plan_after = getattr(output, 'deep_research_plan', None)
+                if plan_after:
+                    research_id = getattr(plan_after, 'research_id', None)
+                    if research_id:
+                        print(f"  [dim]Research ID: {research_id}[/dim]", file=sys.stderr)
+
             # Poll for completion if we have a research_id
             if research_id:
                 from rich.console import Console
