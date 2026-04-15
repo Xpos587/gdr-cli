@@ -182,30 +182,27 @@ uv sync
 # Install dev dependencies
 uv sync --group dev
 
+# Run all quality checks
+go-task check
+
+# Fix all auto-fixable issues
+go-task fix
+
 # Run type checker
-uv run basedpyright src
+go-task typecheck
 
 # Run linter
-uv run ruff check
+go-task lint
 
 # Format code
-uv run ruff format
+go-task fmt
 
 # Run tests
-uv run pytest
+go-task test
 
 # Run tests with coverage
-uv run pytest --cov=src
+go-task test:cov
 ```
-
-### VS Code
-
-The project includes `.vscode/settings.json` with Ruff and BasedPyright integration. Recommended extensions:
-
-- [Ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff)
-- [BasedPyright](https://marketplace.visualstudio.com/items?itemName=basedwonk.basedpyright)
-- [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
-- [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debuggy)
 
 ## License
 
