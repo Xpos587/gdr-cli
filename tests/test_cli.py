@@ -313,6 +313,23 @@ class TestResearchCommand:
         assert result.exit_code == 0
         assert not (tmp_path / "r.md").exists()
 
+    def test_research_output_with_none_plan(self, tmp_path):
+        mock_result = MagicMock()
+        mock_result.plan = None
+        mock_result.done = True
+        mock_result.text = "Fallback extracted report"
+
+        out_file = tmp_path / "report.md"
+        with patch("research.run_deep_research", new_callable=AsyncMock, return_value=mock_result):
+            result = runner.invoke(app, ["research", "test", "-o", str(out_file)])
+        assert result.exit_code == 0
+        assert out_file.exists()
+        content = out_file.read_text()
+        assert "Fallback extracted report" in content
+        assert "Deep Research Report" in content
+        # Should not have Title line when plan is None
+        assert "> Title:" not in content
+
     def test_research_passes_options(self):
         mock_result = MagicMock()
         mock_result.plan = MagicMock()

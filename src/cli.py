@@ -366,10 +366,10 @@ def research(
             "",
             f"> Query: {query}",
             f"> Status: {'COMPLETED' if result.done else 'INCOMPLETE'}",
-            f"> Title: {result.plan.title or '(untitled)'}",
-            "",
-            result.text,
         ]
+        if result.plan:
+            header.append(f"> Title: {result.plan.title or '(untitled)'}")
+        header.extend(["", result.text])
         out_path.write_text("\n".join(header), encoding="utf-8")
         console.print(f"\nReport saved to: [bold]{out_path}[/bold]")
     else:
