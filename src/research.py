@@ -181,8 +181,11 @@ async def run_deep_research(
             if _cid_holder is not None:
                 _cid_holder[0] = cid
 
+        # Extract text from ModelOutput
+        response_text = output.text if output else ""
+
         # Return result as if it was deep research
-        return _make_result_with_text(output or "", done=True)
+        return _make_result_with_text(response_text, done=True)
 
     finally:
         await client.close()

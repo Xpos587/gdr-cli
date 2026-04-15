@@ -191,7 +191,7 @@ class TestRunDeepResearch:
                 asyncio.run(run_deep_research("test query"))
 
     def test_auto_confirm_skips_prompt(self):
-        from gemini_webapi.types import DeepResearchPlan, DeepResearchResult
+        from gemini_webapi.types import DeepResearchPlan, DeepResearchResult, ModelOutput
 
         mock_client = _create_mock_client_with_chat_mocks()
         mock_result = MagicMock(spec=DeepResearchResult)
@@ -201,9 +201,11 @@ class TestRunDeepResearch:
         mock_result.done = True
         mock_result.text = "Report"
 
-        # Mock chat.send_message since code uses regular chat now
+        # Mock chat.send_message to return ModelOutput with .text property
+        mock_output = MagicMock(spec=ModelOutput)
+        mock_output.text = "Report"
         mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(return_value="Report")
+        mock_chat.send_message = AsyncMock(return_value=mock_output)
         mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
@@ -223,11 +225,15 @@ class TestRunDeepResearch:
         assert result.text == "Report"
 
     def test_no_confirm_auto_confirm_false(self):
+        from gemini_webapi.types import ModelOutput
+
         mock_client = _create_mock_client_with_chat_mocks()
 
-        # Mock chat.send_message since code uses regular chat now
+        # Mock chat.send_message to return ModelOutput with .text property
+        mock_output = MagicMock(spec=ModelOutput)
+        mock_output.text = "Report"
         mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(return_value="Report")
+        mock_chat.send_message = AsyncMock(return_value=mock_output)
         mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
@@ -242,11 +248,15 @@ class TestRunDeepResearch:
 
     def test_no_confirm_runs_research(self):
         """Test that --no-confirm runs research (no cancellation supported in new flow)."""
+        from gemini_webapi.types import ModelOutput
+
         mock_client = _create_mock_client_with_chat_mocks()
 
-        # Mock chat.send_message since code uses regular chat now
+        # Mock chat.send_message to return ModelOutput with .text property
+        mock_output = MagicMock(spec=ModelOutput)
+        mock_output.text = "Report"
         mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(return_value="Report")
+        mock_chat.send_message = AsyncMock(return_value=mock_output)
         mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
@@ -259,19 +269,15 @@ class TestRunDeepResearch:
         mock_chat.send_message.assert_called_once_with("test", deep_research=True)
 
     def test_passes_timeout_and_poll_interval(self):
-        from gemini_webapi.types import DeepResearchPlan, DeepResearchResult
+        from gemini_webapi.types import ModelOutput
 
         mock_client = _create_mock_client_with_chat_mocks()
-        mock_result = MagicMock(spec=DeepResearchResult)
-        mock_result.plan = MagicMock(spec=DeepResearchPlan)
-        mock_result.plan.title = "T"
-        mock_result.statuses = []
-        mock_result.done = True
-        mock_result.text = "R"
 
-        # Mock chat.send_message since code uses regular chat now
+        # Mock chat.send_message to return ModelOutput with .text property
+        mock_output = MagicMock(spec=ModelOutput)
+        mock_output.text = "R"
         mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(return_value="R")
+        mock_chat.send_message = AsyncMock(return_value=mock_output)
         mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
@@ -301,11 +307,15 @@ class TestRunDeepResearch:
         mock_chat.send_message.assert_called_once_with("test", deep_research=True)
 
     def test_passes_profile(self):
+        from gemini_webapi.types import ModelOutput
+
         mock_client = _create_mock_client_with_chat_mocks()
 
-        # Mock chat.send_message since code uses regular chat now
+        # Mock chat.send_message to return ModelOutput with .text property
+        mock_output = MagicMock(spec=ModelOutput)
+        mock_output.text = "R"
         mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(return_value="R")
+        mock_chat.send_message = AsyncMock(return_value=mock_output)
         mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("research.AuthManager") as mock_auth_cls:
