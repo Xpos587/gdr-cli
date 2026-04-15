@@ -83,7 +83,7 @@ def chat(
         "default", "--profile", "-p", help="Auth profile name",
     ),
     continue_chat: Optional[str] = typer.Option(
-        None, "--continue", "-c", help="Continue chat by CID (omit CID for last chat)",
+        None, "--continue", "-c", help="Continue chat by CID, e.g. 1975e4a9e33a362 (omit for last chat)",
     ),
 ):
     """Chat with Gemini. No prompt enters interactive mode."""
@@ -161,7 +161,7 @@ def chats_list(
 
 @chats_app.command(name="show")
 def chats_show(
-    cid: str = typer.Argument(help="Chat ID to display"),
+    cid: str = typer.Argument(help="Chat ID to display (e.g. 1975e4a9e33a362, with or without c_ prefix)"),
     profile: str = typer.Option(
         "default", "--profile", "-p", help="Auth profile name",
     ),

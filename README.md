@@ -57,6 +57,8 @@ gdr research "Rust vs Go for systems programming" -o report.md
 gdr research "long topic" --timeout 60 --poll 15
 ```
 
+Research prints the chat CID immediately on start. If something goes wrong, you can open the research in the browser at `https://gemini.google.com/app/<cid>` (e.g. `https://gemini.google.com/app/1975e4a9e33a362`).
+
 ### Chat
 
 ```bash
@@ -86,7 +88,7 @@ gdr chats show <chat-id>
 gdr chats show <chat-id> -n 10
 ```
 
-Chat IDs are displayed without the `c_` prefix (matching Gemini web URLs like `gemini.google.com/app/<id>`). The `c_` prefix is added automatically when needed for API calls.
+Chat IDs are displayed without the `c_` prefix (e.g. `1975e4a9e33a362`). This is the same ID used in Gemini web URLs: `https://gemini.google.com/app/1975e4a9e33a362`. The `c_` prefix is added automatically when needed for API calls.
 
 ### Doctor
 
@@ -114,7 +116,7 @@ Checks auth, cookies, and Gemini connectivity.
 
 ### Chat Options
 
-- `--continue, -c [CID]` — Continue a chat (omit CID for last chat)
+- `--continue, -c [CID]` — Continue a chat by ID (omit for last chat). Accepts `1975e4a9e33a362` or `c_1975e4a9e33a362`
 
 ### Research Options
 

@@ -46,4 +46,4 @@ data/              # Static data files
 - Async throughout — CLI commands use `asyncio.run()`
 - Errors surface as `GDRError` subclasses with optional `hint` field
 - Exit codes: 0=ok, 1=error, 2=GDRError, 3=usage limit, 130=interrupt
-- Chat IDs: displayed without `c_` prefix (matches Gemini web URLs), normalized to `c_` prefixed for API calls
+- Chat IDs: displayed without `c_` prefix (matches Gemini web URLs like `gemini.google.com/app/1975e4a9e33a362`), normalized to `c_` prefixed for API calls
