@@ -1,535 +1,570 @@
 """Tests for research.py — orchestration (mocked GeminiClient)."""
 
-import json
-import pytest
 import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
-from research import run_deep_research, format_result, _status_callback, _extract_report_from_chat, _poll_for_report
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from auth import AuthManager
+from research import (
+  _extract_report_from_chat,
+  _poll_for_report,
+  _status_callback,
+  format_result,
+  run_deep_research,
+)
 
 
 def _create_mock_client_with_chat_mocks():
-    """Create a mock client with chat-related mocks for fallback path."""
-    mock_client = MagicMock()
-    mock_client.init = AsyncMock()
-    mock_client.close = AsyncMock()
-    # Add mocks for deep_research and fallback path
-    mock_client.deep_research = AsyncMock()
-    # Add mocks for fallback path
-    mock_chat = MagicMock()
-    mock_chat.send_message = AsyncMock()
-    mock_client.start_chat = MagicMock(return_value=mock_chat)
-    mock_client.list_chats = MagicMock(return_value=[])
-    return mock_client
+  """Create a mock client with chat-related mocks for fallback path."""
+  mock_client = MagicMock()
+  mock_client.init = AsyncMock()
+  mock_client.close = AsyncMock()
+  # Add mocks for deep_research and fallback path
+  mock_client.deep_research = AsyncMock()
+  # Add mocks for fallback path
+  mock_chat = MagicMock()
+  mock_chat.send_message = AsyncMock()
+  mock_client.start_chat = MagicMock(return_value=mock_chat)
+  mock_client.list_chats = MagicMock(return_value=[])
+  return mock_client
 
 
 class TestFormatResult:
-    def test_formats_completed_result(self):
-        plan = MagicMock()
-        plan.title = "AI Trends 2026"
-        plan.steps = ["Step 1: Search", "Step 2: Analyze"]
-        plan.eta_text = "~10 minutes"
+  def test_formats_completed_result(self):
+    plan = MagicMock()
+    plan.title = "AI Trends 2026"
+    plan.steps = ["Step 1: Search", "Step 2: Analyze"]
+    plan.eta_text = "~10 minutes"
 
-        result = MagicMock()
-        result.plan = plan
-        result.statuses = []
-        result.done = True
-        result.text = "Here is the research report..."
+    result = MagicMock()
+    result.plan = plan
+    result.statuses = []
+    result.done = True
+    result.text = "Here is the research report..."
 
-        output = format_result(result)
-        assert "COMPLETED" in output
-        assert "AI Trends 2026" in output
+    output = format_result(result)
+    assert "COMPLETED" in output
+    assert "AI Trends 2026" in output
 
-    def test_formats_incomplete_result(self):
-        plan = MagicMock()
-        plan.title = "Test"
-        plan.steps = []
-        plan.eta_text = None
+  def test_formats_incomplete_result(self):
+    plan = MagicMock()
+    plan.title = "Test"
+    plan.steps = []
+    plan.eta_text = None
 
-        result = MagicMock()
-        result.plan = plan
-        result.statuses = []
-        result.done = False
-        result.text = ""
+    result = MagicMock()
+    result.plan = plan
+    result.statuses = []
+    result.done = False
+    result.text = ""
 
-        output = format_result(result)
-        assert "INCOMPLETE" in output
+    output = format_result(result)
+    assert "INCOMPLETE" in output
 
-    def test_formats_with_no_text(self):
-        plan = MagicMock()
-        plan.title = "Empty"
-        plan.eta_text = None
+  def test_formats_with_no_text(self):
+    plan = MagicMock()
+    plan.title = "Empty"
+    plan.eta_text = None
 
-        result = MagicMock()
-        result.plan = plan
-        result.statuses = []
-        result.done = True
-        result.text = ""
+    result = MagicMock()
+    result.plan = plan
+    result.statuses = []
+    result.done = True
+    result.text = ""
 
-        output = format_result(result)
-        assert "No report text returned" in output
+    output = format_result(result)
+    assert "No report text returned" in output
 
-    def test_formats_with_no_plan(self):
-        result = MagicMock()
-        result.plan = None
-        result.statuses = []
-        result.done = False
-        result.text = "some text"
+  def test_formats_with_no_plan(self):
+    result = MagicMock()
+    result.plan = None
+    result.statuses = []
+    result.done = False
+    result.text = "some text"
 
-        output = format_result(result)
-        assert "INCOMPLETE" in output
+    output = format_result(result)
+    assert "INCOMPLETE" in output
 
-    def test_formats_with_eta(self):
-        plan = MagicMock()
-        plan.title = "T"
-        plan.eta_text = "5 min"
+  def test_formats_with_eta(self):
+    plan = MagicMock()
+    plan.title = "T"
+    plan.eta_text = "5 min"
 
-        result = MagicMock()
-        result.plan = plan
-        result.statuses = []
-        result.done = True
-        result.text = "report"
+    result = MagicMock()
+    result.plan = plan
+    result.statuses = []
+    result.done = True
+    result.text = "report"
 
-        output = format_result(result)
-        assert "5 min" in output
+    output = format_result(result)
+    assert "5 min" in output
 
-    def test_formats_with_status_count(self):
-        plan = MagicMock()
-        plan.title = "T"
-        plan.eta_text = None
+  def test_formats_with_status_count(self):
+    plan = MagicMock()
+    plan.title = "T"
+    plan.eta_text = None
 
-        result = MagicMock()
-        result.plan = plan
-        result.statuses = [MagicMock(), MagicMock(), MagicMock()]
-        result.done = True
-        result.text = "r"
+    result = MagicMock()
+    result.plan = plan
+    result.statuses = [MagicMock(), MagicMock(), MagicMock()]
+    result.done = True
+    result.text = "r"
 
-        output = format_result(result)
-        assert "3" in output
+    output = format_result(result)
+    assert "3" in output
 
-    def test_format_result_no_text_no_plan(self):
-        result = MagicMock()
-        result.plan = None
-        result.statuses = []
-        result.done = True
-        result.text = ""
-        output = format_result(result)
-        assert "COMPLETED" in output
-        assert "No report text returned" in output
+  def test_format_result_no_text_no_plan(self):
+    result = MagicMock()
+    result.plan = None
+    result.statuses = []
+    result.done = True
+    result.text = ""
+    output = format_result(result)
+    assert "COMPLETED" in output
+    assert "No report text returned" in output
 
 
 class TestStatusCallback:
-    def test_calls_on_status(self):
-        plan = MagicMock()
-        plan.title = "Research"
-        on_status = MagicMock()
-        status = MagicMock()
-        status.state = "working"
-        status.title = "Step 1"
-        status.notes = ["Searching..."]
+  def test_calls_on_status(self):
+    plan = MagicMock()
+    plan.title = "Research"
+    on_status = MagicMock()
+    status = MagicMock()
+    status.state = "working"
+    status.title = "Step 1"
+    status.notes = ["Searching..."]
 
-        cb = _status_callback(plan, on_status)
-        cb(status)
+    cb = _status_callback(plan, on_status)
+    cb(status)
 
-        on_status.assert_called_once_with(status)
+    on_status.assert_called_once_with(status)
 
-    def test_truncates_notes(self):
-        plan = MagicMock()
-        plan.title = "R"
-        on_status = MagicMock()
-        status = MagicMock()
-        status.state = "working"
-        status.title = "S"
-        status.notes = ["a", "b", "c", "d", "e"]
+  def test_truncates_notes(self):
+    plan = MagicMock()
+    plan.title = "R"
+    on_status = MagicMock()
+    status = MagicMock()
+    status.state = "working"
+    status.title = "S"
+    status.notes = ["a", "b", "c", "d", "e"]
 
-        cb = _status_callback(plan, on_status)
-        cb(status)
+    cb = _status_callback(plan, on_status)
+    cb(status)
 
-        on_status.assert_called_once()
+    on_status.assert_called_once()
 
-    def test_no_on_status(self):
-        plan = MagicMock()
-        plan.title = "R"
-        status = MagicMock()
-        status.state = "done"
-        status.title = "Complete"
-        status.notes = []
+  def test_no_on_status(self):
+    plan = MagicMock()
+    plan.title = "R"
+    status = MagicMock()
+    status.state = "done"
+    status.title = "Complete"
+    status.notes = []
 
-        cb = _status_callback(plan, None)
-        cb(status)  # Should not raise
+    cb = _status_callback(plan, None)
+    cb(status)  # Should not raise
 
-    def test_none_title_uses_plan_title(self):
-        plan = MagicMock()
-        plan.title = "Plan Title"
-        status = MagicMock()
-        status.state = "working"
-        status.title = None
-        status.notes = []
+  def test_none_title_uses_plan_title(self):
+    plan = MagicMock()
+    plan.title = "Plan Title"
+    status = MagicMock()
+    status.state = "working"
+    status.title = None
+    status.notes = []
 
-        cb = _status_callback(plan, None)
-        cb(status)  # Should not raise
+    cb = _status_callback(plan, None)
+    cb(status)  # Should not raise
 
-    def test_none_plan_title(self):
-        plan = MagicMock()
-        plan.title = None
-        status = MagicMock()
-        status.state = "working"
-        status.title = None
-        status.notes = []
+  def test_none_plan_title(self):
+    plan = MagicMock()
+    plan.title = None
+    status = MagicMock()
+    status.state = "working"
+    status.title = None
+    status.notes = []
 
-        cb = _status_callback(plan, None)
-        cb(status)  # Should not raise
+    cb = _status_callback(plan, None)
+    cb(status)  # Should not raise
 
 
 class TestRunDeepResearch:
-    def test_raises_auth_error_on_missing_profile(self):
-        from auth import AuthManager
-        from exceptions import ProfileNotFoundError
+  def test_raises_auth_error_on_missing_profile(self):
+    from exceptions import ProfileNotFoundError
 
-        with patch.object(AuthManager, "get_cookies", side_effect=ProfileNotFoundError("default")):
-            with pytest.raises(ProfileNotFoundError):
-                asyncio.run(run_deep_research("test query"))
+    with patch.object(AuthManager, "get_cookies", side_effect=ProfileNotFoundError("default")):
+      with pytest.raises(ProfileNotFoundError):
+        asyncio.run(run_deep_research("test query"))
 
-    def test_auto_confirm_skips_prompt(self):
-        from gemini_webapi.types import DeepResearchPlan, DeepResearchResult, ModelOutput
+  def test_auto_confirm_skips_prompt(self):
+    from gemini_webapi.types import DeepResearchPlan, DeepResearchResult, ModelOutput
 
-        mock_client = _create_mock_client_with_chat_mocks()
-        mock_result = MagicMock(spec=DeepResearchResult)
-        mock_result.plan = MagicMock(spec=DeepResearchPlan)
-        mock_result.plan.title = "Test"
-        mock_result.statuses = []
-        mock_result.done = True
-        mock_result.text = "Report"
+    mock_client = _create_mock_client_with_chat_mocks()
+    mock_result = MagicMock(spec=DeepResearchResult)
+    mock_result.plan = MagicMock(spec=DeepResearchPlan)
+    mock_result.plan.title = "Test"
+    mock_result.statuses = []
+    mock_result.done = True
+    mock_result.text = "Report"
 
-        # Mock chat.send_message to return ModelOutput with .text property and plan
-        mock_output = MagicMock(spec=ModelOutput)
-        mock_output.text = "Report"
-        mock_output.deep_research_plan = None  # No plan, single call
-        mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(return_value=mock_output)
-        mock_chat.cid = "c_test123"  # Mock CID
-        mock_client.start_chat = MagicMock(return_value=mock_chat)
+    # Mock chat.send_message to return ModelOutput with .text property and plan
+    mock_output = MagicMock(spec=ModelOutput)
+    mock_output.text = "Report"
+    mock_output.deep_research_plan = None  # No plan, single call
+    mock_chat = MagicMock()
+    mock_chat.send_message = AsyncMock(return_value=mock_output)
+    mock_chat.cid = "c_test123"  # Mock CID
+    mock_client.start_chat = MagicMock(return_value=mock_chat)
 
-        with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
-            with patch("research.GeminiClient", return_value=mock_client):
-                result = asyncio.run(run_deep_research("test", auto_confirm=True))
+    with patch(
+      "auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}
+    ):
+      with patch("research.GeminiClient", return_value=mock_client):
+        result = asyncio.run(run_deep_research("test", auto_confirm=True))
 
-        assert result.done is True
-        assert result.text == "Report"
-        # Verify deep_research=True was passed
-        mock_chat.send_message.assert_called_once_with("test", deep_research=True)
+    assert result.done is True
+    assert result.text == "Report"
+    # Verify deep_research=True was passed
+    mock_chat.send_message.assert_called_once_with("test", deep_research=True)
 
-    def test_auto_confirm_confirms_plan_when_present(self):
-        """Test that auto_confirm sends confirmation when plan is returned."""
-        from gemini_webapi.types import ModelOutput, DeepResearchPlan
+  def test_auto_confirm_confirms_plan_when_present(self):
+    """Test that auto_confirm sends confirmation when plan is returned."""
+    from gemini_webapi.types import DeepResearchPlan, ModelOutput
 
-        mock_client = _create_mock_client_with_chat_mocks()
+    mock_client = _create_mock_client_with_chat_mocks()
 
-        # First call returns a plan, second call returns the research result
-        mock_output_with_plan = MagicMock(spec=ModelOutput)
-        mock_output_with_plan.text = "Here's the research plan..."
-        mock_plan = MagicMock(spec=DeepResearchPlan)
-        mock_plan.title = "Test Research"
-        mock_plan.confirm_prompt = "Start research"
-        mock_plan.research_id = "res_123"  # Add research_id
-        mock_output_with_plan.deep_research_plan = mock_plan
+    # First call returns a plan, second call returns the research result
+    mock_output_with_plan = MagicMock(spec=ModelOutput)
+    mock_output_with_plan.text = "Here's the research plan..."
+    mock_plan = MagicMock(spec=DeepResearchPlan)
+    mock_plan.title = "Test Research"
+    mock_plan.confirm_prompt = "Start research"
+    mock_plan.research_id = "res_123"  # Add research_id
+    mock_output_with_plan.deep_research_plan = mock_plan
 
-        mock_output_result = MagicMock(spec=ModelOutput)
-        mock_output_result.text = "Research results..."
+    mock_output_result = MagicMock(spec=ModelOutput)
+    mock_output_result.text = "Research results..."
 
-        mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(
-            side_effect=[mock_output_with_plan, mock_output_result]
-        )
-        mock_chat.cid = "c_test456"  # Mock CID
-        mock_client.start_chat = MagicMock(return_value=mock_chat)
-        # Mock get_deep_research_status to return done immediately
-        mock_status = MagicMock()
-        mock_status.done = True
-        mock_client.get_deep_research_status = AsyncMock(return_value=mock_status)
-        # Mock fetch_latest_chat_response
-        mock_client.fetch_latest_chat_response = AsyncMock(return_value=mock_output_result)
+    mock_chat = MagicMock()
+    mock_chat.send_message = AsyncMock(side_effect=[mock_output_with_plan, mock_output_result])
+    mock_chat.cid = "c_test456"  # Mock CID
+    mock_client.start_chat = MagicMock(return_value=mock_chat)
+    # Mock get_deep_research_status to return done immediately
+    mock_status = MagicMock()
+    mock_status.done = True
+    mock_client.get_deep_research_status = AsyncMock(return_value=mock_status)
+    # Mock fetch_latest_chat_response
+    mock_client.fetch_latest_chat_response = AsyncMock(return_value=mock_output_result)
 
-        with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
-            with patch("research.GeminiClient", return_value=mock_client):
-                result = asyncio.run(run_deep_research("test", auto_confirm=True))
+    with patch(
+      "auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}
+    ):
+      with patch("research.GeminiClient", return_value=mock_client):
+        result = asyncio.run(run_deep_research("test", auto_confirm=True))
 
-        assert result.done is True
-        assert result.text == "Research results..."
-        # Should have called send_message twice: query + confirmation
-        assert mock_chat.send_message.call_count == 2
-        # First call with query
-        mock_chat.send_message.assert_any_call("test", deep_research=True)
-        # Second call with confirmation
-        mock_chat.send_message.assert_any_call("Start research", deep_research=True)
+    assert result.done is True
+    assert result.text == "Research results..."
+    # Should have called send_message twice: query + confirmation
+    assert mock_chat.send_message.call_count == 2
+    # First call with query
+    mock_chat.send_message.assert_any_call("test", deep_research=True)
+    # Second call with confirmation
+    mock_chat.send_message.assert_any_call("Start research", deep_research=True)
 
-    def test_no_confirm_auto_confirm_false(self):
-        from gemini_webapi.types import ModelOutput
+  def test_no_confirm_auto_confirm_false(self):
+    from gemini_webapi.types import ModelOutput
 
-        mock_client = _create_mock_client_with_chat_mocks()
+    mock_client = _create_mock_client_with_chat_mocks()
 
-        # Mock chat.send_message to return ModelOutput with .text property
-        mock_output = MagicMock(spec=ModelOutput)
-        mock_output.text = "Report"
-        mock_output.deep_research_plan = None  # No plan
-        mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(return_value=mock_output)
-        mock_chat.cid = "c_test789"  # Mock CID
-        mock_client.start_chat = MagicMock(return_value=mock_chat)
+    # Mock chat.send_message to return ModelOutput with .text property
+    mock_output = MagicMock(spec=ModelOutput)
+    mock_output.text = "Report"
+    mock_output.deep_research_plan = None  # No plan
+    mock_chat = MagicMock()
+    mock_chat.send_message = AsyncMock(return_value=mock_output)
+    mock_chat.cid = "c_test789"  # Mock CID
+    mock_client.start_chat = MagicMock(return_value=mock_chat)
 
-        with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
-            with patch("research.GeminiClient", return_value=mock_client):
-                with patch("builtins.input", return_value=""):
-                    result = asyncio.run(run_deep_research("test", auto_confirm=False))
+    with patch(
+      "auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}
+    ):
+      with patch("research.GeminiClient", return_value=mock_client):
+        with patch("builtins.input", return_value=""):
+          result = asyncio.run(run_deep_research("test", auto_confirm=False))
 
-        assert result.done is True
-        assert result.text == "Report"
-        # Verify deep_research=True was passed
-        mock_chat.send_message.assert_called_once_with("test", deep_research=True)
+    assert result.done is True
+    assert result.text == "Report"
+    # Verify deep_research=True was passed
+    mock_chat.send_message.assert_called_once_with("test", deep_research=True)
 
-    def test_no_confirm_runs_research(self):
-        """Test that --no-confirm runs research (no cancellation supported in new flow)."""
-        from gemini_webapi.types import ModelOutput
+  def test_no_confirm_runs_research(self):
+    """Test that --no-confirm runs research (no cancellation supported in new flow)."""
+    from gemini_webapi.types import ModelOutput
 
-        mock_client = _create_mock_client_with_chat_mocks()
+    mock_client = _create_mock_client_with_chat_mocks()
 
-        # Mock chat.send_message to return ModelOutput with .text property
-        mock_output = MagicMock(spec=ModelOutput)
-        mock_output.text = "Report"
-        mock_output.deep_research_plan = None  # No plan
-        mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(return_value=mock_output)
-        mock_chat.cid = "c_testabc"  # Mock CID
-        mock_client.start_chat = MagicMock(return_value=mock_chat)
+    # Mock chat.send_message to return ModelOutput with .text property
+    mock_output = MagicMock(spec=ModelOutput)
+    mock_output.text = "Report"
+    mock_output.deep_research_plan = None  # No plan
+    mock_chat = MagicMock()
+    mock_chat.send_message = AsyncMock(return_value=mock_output)
+    mock_chat.cid = "c_testabc"  # Mock CID
+    mock_client.start_chat = MagicMock(return_value=mock_chat)
 
-        with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
-            with patch("research.GeminiClient", return_value=mock_client):
-                result = asyncio.run(run_deep_research("test", auto_confirm=False))
+    with patch(
+      "auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}
+    ):
+      with patch("research.GeminiClient", return_value=mock_client):
+        result = asyncio.run(run_deep_research("test", auto_confirm=False))
 
-        # With the simplified flow, research runs directly regardless of auto_confirm
-        assert result.done is True
-        # Verify deep_research=True was passed
-        mock_chat.send_message.assert_called_once_with("test", deep_research=True)
+    # With the simplified flow, research runs directly regardless of auto_confirm
+    assert result.done is True
+    # Verify deep_research=True was passed
+    mock_chat.send_message.assert_called_once_with("test", deep_research=True)
 
-    def test_passes_timeout_and_poll_interval(self):
-        from gemini_webapi.types import ModelOutput
+  def test_passes_timeout_and_poll_interval(self):
+    from gemini_webapi.types import ModelOutput
 
-        mock_client = _create_mock_client_with_chat_mocks()
+    mock_client = _create_mock_client_with_chat_mocks()
 
-        # Mock chat.send_message to return ModelOutput with .text property
-        mock_output = MagicMock(spec=ModelOutput)
-        mock_output.text = "R"
-        mock_output.deep_research_plan = None  # No plan
-        mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(return_value=mock_output)
-        mock_chat.cid = "c_testdef"  # Mock CID
-        mock_client.start_chat = MagicMock(return_value=mock_chat)
+    # Mock chat.send_message to return ModelOutput with .text property
+    mock_output = MagicMock(spec=ModelOutput)
+    mock_output.text = "R"
+    mock_output.deep_research_plan = None  # No plan
+    mock_chat = MagicMock()
+    mock_chat.send_message = AsyncMock(return_value=mock_output)
+    mock_chat.cid = "c_testdef"  # Mock CID
+    mock_client.start_chat = MagicMock(return_value=mock_chat)
 
-        with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
-            with patch("research.GeminiClient", return_value=mock_client):
-                asyncio.run(run_deep_research("q", timeout_min=15, poll_interval=5.0))
+    with patch(
+      "auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}
+    ):
+      with patch("research.GeminiClient", return_value=mock_client):
+        asyncio.run(run_deep_research("q", timeout_min=15, poll_interval=5.0))
 
-        mock_client.init.assert_called_once_with(timeout=900)
-        # Verify deep_research=True was passed
-        mock_chat.send_message.assert_called_once_with("q", deep_research=True)
+    mock_client.init.assert_called_once_with(timeout=900)
+    # Verify deep_research=True was passed
+    mock_chat.send_message.assert_called_once_with("q", deep_research=True)
 
-    def test_client_closed_on_error(self):
-        from gemini_webapi.exceptions import UsageLimitExceeded
+  def test_client_closed_on_error(self):
+    from gemini_webapi.exceptions import UsageLimitExceeded
 
-        mock_client = _create_mock_client_with_chat_mocks()
-        # UsageLimitExceeded from chat.send_message should propagate
-        mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(side_effect=UsageLimitExceeded("limit"))
-        mock_client.start_chat = MagicMock(return_value=mock_chat)
+    mock_client = _create_mock_client_with_chat_mocks()
+    # UsageLimitExceeded from chat.send_message should propagate
+    mock_chat = MagicMock()
+    mock_chat.send_message = AsyncMock(side_effect=UsageLimitExceeded("limit"))
+    mock_client.start_chat = MagicMock(return_value=mock_chat)
 
-        with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
-            with patch("research.GeminiClient", return_value=mock_client):
-                with pytest.raises(UsageLimitExceeded):
-                    asyncio.run(run_deep_research("test"))
+    with patch(
+      "auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}
+    ):
+      with patch("research.GeminiClient", return_value=mock_client):
+        with pytest.raises(UsageLimitExceeded):
+          asyncio.run(run_deep_research("test"))
 
-        mock_client.close.assert_called_once()
-        # Verify deep_research=True was passed even on error
-        mock_chat.send_message.assert_called_once_with("test", deep_research=True)
+    mock_client.close.assert_called_once()
+    # Verify deep_research=True was passed even on error
+    mock_chat.send_message.assert_called_once_with("test", deep_research=True)
 
-    def test_research_rate_limit_message(self):
-        """Test that rate limit message is detected and raises GDRError."""
-        from gemini_webapi.types import ModelOutput
-        from exceptions import GDRError
+  def test_research_rate_limit_message(self):
+    """Test that rate limit message is detected and raises GDRError."""
+    from gemini_webapi.types import ModelOutput
 
-        mock_client = _create_mock_client_with_chat_mocks()
+    from exceptions import GDRError
 
-        # Mock response with rate limit message
-        mock_output = MagicMock(spec=ModelOutput)
-        mock_output.text = "You have 3 research requests running right now, which is the maximum I can do at one time."
-        mock_output.deep_research_plan = None
-        mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(return_value=mock_output)
-        mock_chat.cid = "c_test_limit"  # Mock CID
-        mock_client.start_chat = MagicMock(return_value=mock_chat)
+    mock_client = _create_mock_client_with_chat_mocks()
 
-        with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
-            with patch("research.GeminiClient", return_value=mock_client):
-                with pytest.raises(GDRError) as exc_info:
-                    asyncio.run(run_deep_research("test"))
+    # Mock response with rate limit message
+    mock_output = MagicMock(spec=ModelOutput)
+    mock_output.text = (
+      "You have 3 research requests running right now, which is the maximum I can do at one time."
+    )
+    mock_output.deep_research_plan = None
+    mock_chat = MagicMock()
+    mock_chat.send_message = AsyncMock(return_value=mock_output)
+    mock_chat.cid = "c_test_limit"  # Mock CID
+    mock_client.start_chat = MagicMock(return_value=mock_chat)
 
-        assert "research limit reached" in str(exc_info.value).lower()
+    with patch(
+      "auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}
+    ):
+      with patch("research.GeminiClient", return_value=mock_client):
+        with pytest.raises(GDRError) as exc_info:
+          asyncio.run(run_deep_research("test"))
 
-    def test_passes_profile(self):
-        from gemini_webapi.types import ModelOutput
+    assert "research limit reached" in str(exc_info.value).lower()
 
-        mock_client = _create_mock_client_with_chat_mocks()
+  def test_passes_profile(self):
+    from gemini_webapi.types import ModelOutput
 
-        # Mock chat.send_message to return ModelOutput with .text property
-        mock_output = MagicMock(spec=ModelOutput)
-        mock_output.text = "R"
-        mock_output.deep_research_plan = None  # No plan
-        mock_chat = MagicMock()
-        mock_chat.send_message = AsyncMock(return_value=mock_output)
-        mock_chat.cid = "c_testghi"  # Mock CID
-        mock_client.start_chat = MagicMock(return_value=mock_chat)
+    mock_client = _create_mock_client_with_chat_mocks()
 
-        with patch("research.AuthManager") as mock_auth_cls:
-            mock_auth_mgr = MagicMock()
-            mock_auth_mgr.get_cookies.return_value = {"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}
-            mock_auth_cls.return_value = mock_auth_mgr
-            with patch("research.GeminiClient", return_value=mock_client):
-                asyncio.run(run_deep_research("q", profile="work"))
+    # Mock chat.send_message to return ModelOutput with .text property
+    mock_output = MagicMock(spec=ModelOutput)
+    mock_output.text = "R"
+    mock_output.deep_research_plan = None  # No plan
+    mock_chat = MagicMock()
+    mock_chat.send_message = AsyncMock(return_value=mock_output)
+    mock_chat.cid = "c_testghi"  # Mock CID
+    mock_client.start_chat = MagicMock(return_value=mock_chat)
 
-        mock_auth_cls.assert_called_once_with("work")
-        # Verify deep_research=True was passed
-        mock_chat.send_message.assert_called_once_with("q", deep_research=True)
+    with patch("research.AuthManager") as mock_auth_cls:
+      mock_auth_mgr = MagicMock()
+      mock_auth_mgr.get_cookies.return_value = {"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}
+      mock_auth_cls.return_value = mock_auth_mgr
+      with patch("research.GeminiClient", return_value=mock_client):
+        asyncio.run(run_deep_research("q", profile="work"))
+
+    mock_auth_cls.assert_called_once_with("work")
+    # Verify deep_research=True was passed
+    mock_chat.send_message.assert_called_once_with("q", deep_research=True)
+
 
 class TestExtractReportFromChat:
-    def test_extracts_report_from_chat_success(self):
-        """Verify the helper extracts report from the nested chat data path."""
-        mock_client = _create_mock_client_with_chat_mocks()
-        report_text = "This is the full research report."
-        # Build nested structure matching data[0][0][3][0][0][30][0][4]
-        # Each level needs enough padding to support the index
-        level6 = [None] * 5
-        level6[4] = report_text
-        level5 = [level6]  # [0] -> level6
-        level4 = [None] * 31
-        level4[30] = level5  # [30] -> level5
-        level3 = [level4]  # [0] -> level4
-        level2 = [level3]  # [0] -> level3
-        level1 = [None] * 4
-        level1[3] = level2  # [3] -> level2
-        level0 = [level1]  # [0] -> level1
-        data = [level0]  # [0] -> level0
-        data_json_str = json.dumps(data)
-        # Frame format: [metadata, ..., payload_json_string]
-        frame = [None, None, data_json_str]
+  def test_extracts_report_from_chat_success(self):
+    """Verify the helper extracts report from the nested chat data path."""
+    mock_client = _create_mock_client_with_chat_mocks()
+    report_text = "This is the full research report."
+    # Build nested structure matching data[0][0][3][0][0][30][0][4]
+    # Each level needs enough padding to support the index
+    level6 = [None] * 5
+    level6[4] = report_text
+    level5 = [level6]  # [0] -> level6
+    level4 = [None] * 31
+    level4[30] = level5  # [30] -> level5
+    level3 = [level4]  # [0] -> level4
+    level2 = [level3]  # [0] -> level3
+    level1 = [None] * 4
+    level1[3] = level2  # [3] -> level2
+    level0 = [level1]  # [0] -> level1
+    data = [level0]  # [0] -> level0
+    data_json_str = json.dumps(data)
+    # Frame format: [metadata, ..., payload_json_string]
+    frame = [None, None, data_json_str]
 
-        mock_response = MagicMock()
-        mock_response.text = ")]}'\n5"
-        mock_client._batch_execute = AsyncMock(return_value=mock_response)
+    mock_response = MagicMock()
+    mock_response.text = ")]}'\n5"
+    mock_client._batch_execute = AsyncMock(return_value=mock_response)
 
-        with patch("gemini_webapi.utils.extract_json_from_response", return_value=[frame]):
-            result = asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
+    with patch("gemini_webapi.utils.extract_json_from_response", return_value=[frame]):
+      result = asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
 
-        assert result == report_text
+    assert result == report_text
 
-    def test_returns_none_on_empty_response(self):
-        mock_client = _create_mock_client_with_chat_mocks()
-        mock_response = MagicMock()
-        mock_response.text = ")]}'\n5"
-        mock_client._batch_execute = AsyncMock(return_value=mock_response)
+  def test_returns_none_on_empty_response(self):
+    mock_client = _create_mock_client_with_chat_mocks()
+    mock_response = MagicMock()
+    mock_response.text = ")]}'\n5"
+    mock_client._batch_execute = AsyncMock(return_value=mock_response)
 
-        with patch("gemini_webapi.utils.extract_json_from_response", return_value=[]):
-            result = asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
+    with patch("gemini_webapi.utils.extract_json_from_response", return_value=[]):
+      result = asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
 
-        assert result is None
+    assert result is None
 
-    def test_returns_none_on_exception(self):
-        mock_client = _create_mock_client_with_chat_mocks()
-        mock_client._batch_execute = AsyncMock(side_effect=RuntimeError("network error"))
+  def test_returns_none_on_exception(self):
+    mock_client = _create_mock_client_with_chat_mocks()
+    mock_client._batch_execute = AsyncMock(side_effect=RuntimeError("network error"))
 
-        result = asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
+    result = asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
 
-        assert result is None
+    assert result is None
 
-    def test_propagates_usage_limit_exceeded(self):
-        from gemini_webapi.exceptions import UsageLimitExceeded
-        mock_client = _create_mock_client_with_chat_mocks()
-        mock_client._batch_execute = AsyncMock(side_effect=UsageLimitExceeded("limit"))
-        with pytest.raises(UsageLimitExceeded):
-            asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
+  def test_propagates_usage_limit_exceeded(self):
+    from gemini_webapi.exceptions import UsageLimitExceeded
 
-    def test_propagates_temporarily_blocked(self):
-        from gemini_webapi.exceptions import TemporarilyBlocked
-        mock_client = _create_mock_client_with_chat_mocks()
-        mock_client._batch_execute = AsyncMock(side_effect=TemporarilyBlocked("blocked"))
-        with pytest.raises(TemporarilyBlocked):
-            asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
+    mock_client = _create_mock_client_with_chat_mocks()
+    mock_client._batch_execute = AsyncMock(side_effect=UsageLimitExceeded("limit"))
+    with pytest.raises(UsageLimitExceeded):
+      asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
+
+  def test_propagates_temporarily_blocked(self):
+    from gemini_webapi.exceptions import TemporarilyBlocked
+
+    mock_client = _create_mock_client_with_chat_mocks()
+    mock_client._batch_execute = AsyncMock(side_effect=TemporarilyBlocked("blocked"))
+    with pytest.raises(TemporarilyBlocked):
+      asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
 
 
 class TestPollForReport:
-    def test_extracts_report_on_first_poll(self):
-        mock_client = _create_mock_client_with_chat_mocks()
-        mock_client._recent_chats = [MagicMock(cid="c_abc")]
-        with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value="report"):
-            with patch("research.asyncio.sleep", new_callable=AsyncMock):
-                result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
-        assert result.done is True
-        assert result.text == "report"
+  def test_extracts_report_on_first_poll(self):
+    mock_client = _create_mock_client_with_chat_mocks()
+    mock_client._recent_chats = [MagicMock(cid="c_abc")]
+    with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value="report"):
+      with patch("research.asyncio.sleep", new_callable=AsyncMock):
+        result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
+    assert result.done is True
+    assert result.text == "report"
 
-    def test_times_out_if_no_report(self):
-        mock_client = _create_mock_client_with_chat_mocks()
-        mock_client._recent_chats = [MagicMock(cid="c_abc")]
-        call_count = 0
-        def fake_monotonic():
-            nonlocal call_count
-            call_count += 1
-            return 0.0 if call_count <= 4 else 99999.0
-        with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value=None):
-            with patch("research.asyncio.sleep", new_callable=AsyncMock):
-                with patch("research.time.monotonic", side_effect=fake_monotonic):
-                    result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
-        assert result.done is False
+  def test_times_out_if_no_report(self):
+    mock_client = _create_mock_client_with_chat_mocks()
+    mock_client._recent_chats = [MagicMock(cid="c_abc")]
+    call_count = 0
 
-    def test_skips_when_no_chats(self):
-        mock_client = _create_mock_client_with_chat_mocks()
-        mock_client._recent_chats = None
-        call_count = 0
-        def fake_monotonic():
-            nonlocal call_count
-            call_count += 1
-            return 0.0 if call_count <= 2 else 99999.0
-        with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value="report") as mock_extract:
-            with patch("research.asyncio.sleep", new_callable=AsyncMock):
-                with patch("time.monotonic", side_effect=fake_monotonic):
-                    result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
-        mock_extract.assert_not_called()
-        assert result.done is False
+    def fake_monotonic():
+      nonlocal call_count
+      call_count += 1
+      return 0.0 if call_count <= 4 else 99999.0
 
-    def test_skips_when_no_cid(self):
-        mock_chat = MagicMock(spec=["__str__"])
-        type(mock_chat).__str__ = lambda self: ""
-        mock_client = _create_mock_client_with_chat_mocks()
-        mock_client._recent_chats = [mock_chat]
-        call_count = 0
-        def fake_monotonic():
-            nonlocal call_count
-            call_count += 1
-            return 0.0 if call_count <= 2 else 99999.0
-        with patch("research._extract_report_from_chat", new_callable=AsyncMock) as mock_extract:
-            with patch("research.asyncio.sleep", new_callable=AsyncMock):
-                with patch("research.time.monotonic", side_effect=fake_monotonic):
-                    result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
-        mock_extract.assert_not_called()
-        assert result.done is False
+    with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value=None):
+      with patch("research.asyncio.sleep", new_callable=AsyncMock):
+        with patch("research.time.monotonic", side_effect=fake_monotonic):
+          result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
+    assert result.done is False
 
-    def test_bails_after_max_fails(self):
-        mock_client = _create_mock_client_with_chat_mocks()
-        mock_client._recent_chats = [MagicMock(cid="c_abc")]
-        call_count = 0
-        def fake_monotonic():
-            nonlocal call_count
-            call_count += 1
-            return 0.0
-        with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value=None):
-            with patch("research.asyncio.sleep", new_callable=AsyncMock):
-                with patch("research.time.monotonic", side_effect=fake_monotonic):
-                    result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=30))
-        assert result.done is False
+  def test_skips_when_no_chats(self):
+    mock_client = _create_mock_client_with_chat_mocks()
+    mock_client._recent_chats = None
+    call_count = 0
+
+    def fake_monotonic():
+      nonlocal call_count
+      call_count += 1
+      return 0.0 if call_count <= 2 else 99999.0
+
+    with patch(
+      "research._extract_report_from_chat", new_callable=AsyncMock, return_value="report"
+    ) as mock_extract:
+      with patch("research.asyncio.sleep", new_callable=AsyncMock):
+        with patch("time.monotonic", side_effect=fake_monotonic):
+          result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
+    mock_extract.assert_not_called()
+    assert result.done is False
+
+  def test_skips_when_no_cid(self):
+    mock_chat = MagicMock(spec=["__str__"])
+    type(mock_chat).__str__ = lambda self: ""
+    mock_client = _create_mock_client_with_chat_mocks()
+    mock_client._recent_chats = [mock_chat]
+    call_count = 0
+
+    def fake_monotonic():
+      nonlocal call_count
+      call_count += 1
+      return 0.0 if call_count <= 2 else 99999.0
+
+    with patch("research._extract_report_from_chat", new_callable=AsyncMock) as mock_extract:
+      with patch("research.asyncio.sleep", new_callable=AsyncMock):
+        with patch("research.time.monotonic", side_effect=fake_monotonic):
+          result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
+    mock_extract.assert_not_called()
+    assert result.done is False
+
+  def test_bails_after_max_fails(self):
+    mock_client = _create_mock_client_with_chat_mocks()
+    mock_client._recent_chats = [MagicMock(cid="c_abc")]
+    call_count = 0
+
+    def fake_monotonic():
+      nonlocal call_count
+      call_count += 1
+      return 0.0
+
+    with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value=None):
+      with patch("research.asyncio.sleep", new_callable=AsyncMock):
+        with patch("research.time.monotonic", side_effect=fake_monotonic):
+          result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=30))
+    assert result.done is False

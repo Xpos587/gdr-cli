@@ -1,0 +1,98 @@
+version: '3'
+
+vars:
+  PROJECT_NAME: gdr-cli
+  PYTHON_VERSION: '3.12'
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task -l
+
+  # Development
+  dev:install:
+    desc: Install dev dependencies
+    cmds:
+      - uv sync --group dev
+
+  # Type checking
+  typecheck:
+    desc: Run type checker on source
+    cmds:
+      - uv run basedpyright src
+
+  typecheck:all:
+    desc: Run type checker on entire project
+    cmds:
+      - uv run basedpyright
+
+  # Linting
+  lint:
+    desc: Run linter
+    cmds:
+      - uv run ruff check src tests
+
+  lint:fix:
+    desc: Fix linting issues automatically
+    cmds:
+      - uv run ruff check --fix src tests
+
+  # Formatting
+  fmt:
+    desc: Format code
+    cmds:
+      - uv run ruff format src tests
+
+  fmt:check:
+    desc: Check code formatting
+    cmds:
+      - uv run ruff format --check src tests
+
+  # Testing
+  test:
+    desc: Run tests
+    cmds:
+      - uv run pytest
+
+  test:cov:
+    desc: Run tests with coverage
+    cmds:
+      - uv run pytest --cov=src --cov-report=term-missing
+
+  test:watch:
+    desc: Run tests in watch mode
+    cmds:
+      - uv run pytest -f
+
+  # Quality checks
+  check:
+    desc: Run all quality checks (typecheck + lint + fmt check)
+    cmds:
+      - task: typecheck
+      - task: lint
+      - task: fmt:check
+
+  fix:
+    desc: Fix all auto-fixable issues
+    cmds:
+      - task: lint:fix
+      - task: fmt
+
+  # CLI
+  run:
+    desc: Run CLI
+    cmds:
+      - uv run gdr {{.CLI_ARGS}}
+
+  doctor:
+    desc: Run diagnostics
+    cmds:
+      - uv run gdr doctor
+
+  # Release
+  release:
+    desc: Build and publish package
+    cmds:
+      - uv build
+      - echo "Release built in dist/"

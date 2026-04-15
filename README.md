@@ -159,6 +159,54 @@ Login once with either tool, both can use the same Google cookies.
 
 **Deep Research API Status**: The `gemini_webapi` library's `deep_research()` and `create_deep_research_plan()` APIs are currently non-functional (they hang indefinitely). As a workaround, `gdr research` uses regular chat with your research query. This still provides helpful responses, but lacks the structured deep research experience (planning, status updates, multi-step investigation). This will be fixed once the upstream library is updated.
 
+## Development
+
+### Setup
+
+```bash
+git clone https://github.com/Xpos587/gdr-cli.git
+cd gdr-cli
+uv sync
+```
+
+### Tooling
+
+- **Ruff** — Fast Python linter and formatter (linting + formatting)
+- **BasedPyright** — Static type checker (type checking)
+- **pytest** — Testing framework with async support
+- **EditorConfig** — Consistent editor settings
+
+### Commands
+
+```bash
+# Install dev dependencies
+uv sync --group dev
+
+# Run type checker
+uv run basedpyright src
+
+# Run linter
+uv run ruff check
+
+# Format code
+uv run ruff format
+
+# Run tests
+uv run pytest
+
+# Run tests with coverage
+uv run pytest --cov=src
+```
+
+### VS Code
+
+The project includes `.vscode/settings.json` with Ruff and BasedPyright integration. Recommended extensions:
+
+- [Ruff](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff)
+- [BasedPyright](https://marketplace.visualstudio.com/items?itemName=basedwonk.basedpyright)
+- [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+- [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debuggy)
+
 ## License
 
 MIT

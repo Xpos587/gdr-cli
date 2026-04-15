@@ -14,138 +14,138 @@ from auth import AuthManager
 
 
 async def _create_client(profile: str = "default", timeout: float = 120) -> GeminiClient:
-    """Create and initialize a GeminiClient from profile cookies."""
-    auth = AuthManager(profile)
-    cookies = auth.get_cookies()
+  """Create and initialize a GeminiClient from profile cookies."""
+  auth = AuthManager(profile)
+  cookies = auth.get_cookies()
 
-    client = GeminiClient(
-        secure_1psid=cookies.get("__Secure-1PSID"),
-        secure_1psidts=cookies.get("__Secure-1PSIDTS"),
-    )
-    await client.init(timeout=timeout)
-    return client
+  client = GeminiClient(
+    secure_1psid=cookies.get("__Secure-1PSID"),
+    secure_1psidts=cookies.get("__Secure-1PSIDTS"),
+  )
+  await client.init(timeout=timeout)
+  return client
 
 
 async def send_message(
-    prompt: str,
-    profile: str = "default",
-    timeout: float = 120,
-    model: str | None = None,
+  prompt: str,
+  profile: str = "default",
+  timeout: float = 120,
+  model: str | None = None,
 ) -> str:
-    """Send a single message to Gemini and return the text response."""
-    client = await _create_client(profile, timeout)
-    try:
-        chat = client.start_chat(model=model) if model else client.start_chat()
-        output = await chat.send_message(prompt)
-        return output.text or ""
-    finally:
-        await client.close()
+  """Send a single message to Gemini and return the text response."""
+  client = await _create_client(profile, timeout)
+  try:
+    chat = client.start_chat(model=model) if model else client.start_chat()
+    output = await chat.send_message(prompt)
+    return output.text or ""
+  finally:
+    await client.close()
 
 
 async def continue_chat(
-    prompt: str,
-    *,
-    metadata: list[str] | None = None,
-    profile: str = "default",
-    timeout: float = 120,
-    model: str | None = None,
+  prompt: str,
+  *,
+  metadata: list[str] | None = None,
+  profile: str = "default",
+  timeout: float = 120,
+  model: str | None = None,
 ) -> str:
-    """Send a follow-up message in an existing conversation.
+  """Send a follow-up message in an existing conversation.
 
-    Args:
-        prompt: Message to send.
-        metadata: Previous session's [cid, rid, rcid] to continue.
-        profile: Auth profile name.
-        timeout: Client initialization timeout.
+  Args:
+      prompt: Message to send.
+      metadata: Previous session's [cid, rid, rcid] to continue.
+      profile: Auth profile name.
+      timeout: Client initialization timeout.
 
-    Returns:
-        Response text.
-    """
-    client = await _create_client(profile, timeout)
-    try:
-        kwargs: dict[str, Any] = {}
-        if metadata:
-            kwargs["metadata"] = metadata
-        if model:
-            kwargs["model"] = model
-        chat = client.start_chat(**kwargs)
-        output = await chat.send_message(prompt)
-        return output.text or ""
-    finally:
-        await client.close()
+  Returns:
+      Response text.
+  """
+  client = await _create_client(profile, timeout)
+  try:
+    kwargs: dict[str, Any] = {}
+    if metadata:
+      kwargs["metadata"] = metadata
+    if model:
+      kwargs["model"] = model
+    chat = client.start_chat(**kwargs)
+    output = await chat.send_message(prompt)
+    return output.text or ""
+  finally:
+    await client.close()
 
 
 async def list_recent_chats(
-    profile: str = "default",
-    timeout: float = 30,
+  profile: str = "default",
+  timeout: float = 30,
 ) -> list[dict[str, Any]]:
-    """List recent conversations from Gemini server.
+  """List recent conversations from Gemini server.
 
-    Returns list of dicts with keys: cid, title, is_pinned, timestamp.
-    """
-    client = await _create_client(profile, timeout)
+  Returns list of dicts with keys: cid, title, is_pinned, timestamp.
+  """
+  client = await _create_client(profile, timeout)
 
-    try:
-        chats = client.list_chats()
-        if not chats:
-            return []
+  try:
+    chats = client.list_chats()
+    if not chats:
+      return []
 
-        return [
-            {
-                "cid": c.cid,
-                "title": c.title,
-                "is_pinned": c.is_pinned,
-                "timestamp": c.timestamp,
-            }
-            for c in chats
-        ]
-    finally:
-        await client.close()
+    return [
+      {
+        "cid": c.cid,
+        "title": c.title,
+        "is_pinned": c.is_pinned,
+        "timestamp": c.timestamp,
+      }
+      for c in chats
+    ]
+  finally:
+    await client.close()
 
 
 async def read_chat_history(
-    cid: str,
-    *,
-    limit: int = 20,
-    profile: str = "default",
-    timeout: float = 30,
+  cid: str,
+  *,
+  limit: int = 20,
+  profile: str = "default",
+  timeout: float = 30,
 ) -> dict[str, Any] | None:
-    """Read conversation history for a given chat ID.
+  """Read conversation history for a given chat ID.
 
-    Returns dict with keys: cid, turns (list of {role, text}).
-    Returns None if chat not found.
-    """
-    client = await _create_client(profile, timeout)
+  Returns dict with keys: cid, turns (list of {role, text}).
+  Returns None if chat not found.
+  """
+  client = await _create_client(profile, timeout)
 
-    try:
-        history = await client.read_chat(cid, limit=limit)
-        if history is None:
-            return None
+  try:
+    history = await client.read_chat(cid, limit=limit)
+    if history is None:
+      return None
 
-        return {
-            "cid": history.cid,
-            "turns": [
-                {
-                    "role": turn.role,
-                    "text": turn.text,
-                }
-                for turn in history.turns
-            ],
+    return {
+      "cid": history.cid,
+      "turns": [
+        {
+          "role": turn.role,
+          "text": turn.text,
         }
-    finally:
-        await client.close()
+        for turn in history.turns
+      ],
+    }
+  finally:
+    await client.close()
 
 
 async def delete_chat(
-    cid: str,
-    *,
-    profile: str = "default",
-    timeout: float = 30,
+  cid: str,
+  *,
+  profile: str = "default",
+  timeout: float = 30,
 ) -> None:
-    """Delete a conversation from Gemini server."""
-    client = await _create_client(profile, timeout)
+  """Delete a conversation from Gemini server."""
+  client = await _create_client(profile, timeout)
 
-    try:
-        await client.delete_chat(cid)
-    finally:
-        await client.close()
+  try:
+    await client.delete_chat(cid)
+  finally:
+    await client.close()
