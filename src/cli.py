@@ -138,7 +138,8 @@ def chat(
     ),
 ):
     """Chat with Gemini. No prompt enters interactive mode."""
-    from repl import run_repl
+    import chat as _chat_mod
+    from rich.markdown import Markdown
 
     try:
         metadata = None
@@ -146,12 +147,19 @@ def chat(
             if continue_chat:
                 metadata = [_normalize_cid(continue_chat)]
             else:
-                from chat import list_recent_chats
-                chats = asyncio.run(list_recent_chats(profile=profile))
+                chats = asyncio.run(_chat_mod.list_recent_chats(profile=profile))
                 if chats:
                     metadata = [chats[0]["cid"]]
 
-        asyncio.run(run_repl(profile=profile, metadata=metadata, model=model))
+        if prompt:
+            if metadata:
+                response = asyncio.run(_chat_mod.continue_chat(prompt, metadata=metadata, profile=profile, model=model))
+            else:
+                response = asyncio.run(_chat_mod.send_message(prompt, profile=profile, model=model))
+            console.print(Markdown(response))
+        else:
+            from repl import run_repl
+            asyncio.run(run_repl(profile=profile, metadata=metadata, model=model))
     except GDRError as e:
         console.print(f"[red]Error:[/red] {e.message}")
         if e.hint:

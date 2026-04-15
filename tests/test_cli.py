@@ -53,20 +53,20 @@ class TestHelp:
 class TestErrorHandling:
     def test_chat_auth_error_shows_hint(self):
         from exceptions import GDRError
-        with patch("repl.run_repl", side_effect=GDRError("No cookies", hint="Run 'gdr login'")):
+        with patch("chat.send_message", new_callable=AsyncMock, side_effect=GDRError("No cookies", hint="Run 'gdr login'")):
             result = runner.invoke(app, ["chat", "hello"])
         assert result.exit_code == 2
         assert "Run 'gdr login'" in result.output
 
     def test_chat_auth_error_no_hint(self):
         from exceptions import GDRError
-        with patch("repl.run_repl", side_effect=GDRError("No cookies")):
+        with patch("chat.send_message", new_callable=AsyncMock, side_effect=GDRError("No cookies")):
             result = runner.invoke(app, ["chat", "hello"])
         assert result.exit_code == 2
         assert "No cookies" in result.output
 
     def test_chat_generic_error(self):
-        with patch("repl.run_repl", side_effect=RuntimeError("boom")):
+        with patch("chat.send_message", new_callable=AsyncMock, side_effect=RuntimeError("boom")):
             result = runner.invoke(app, ["chat", "hello"])
         assert result.exit_code == 1
         assert "boom" in result.output
@@ -106,19 +106,32 @@ class TestErrorHandling:
 
 class TestChatCommand:
     def test_chat_single_message(self):
-        with patch("repl.run_repl", new_callable=AsyncMock) as mock_repl:
+        with patch("chat.send_message", new_callable=AsyncMock, return_value="Hello!") as mock_send:
             result = runner.invoke(app, ["chat", "hello"])
         assert result.exit_code == 0
-        mock_repl.assert_called_once()
-        call_kwargs = mock_repl.call_args[1]
-        assert call_kwargs["profile"] == "default"
-        assert call_kwargs["metadata"] is None
+        mock_send.assert_called_once()
+        assert mock_send.call_args[0][0] == "hello"
+        assert mock_send.call_args[1]["profile"] == "default"
+
+    def test_chat_single_message_with_model(self):
+        with patch("chat.send_message", new_callable=AsyncMock, return_value="Hi") as mock_send:
+            result = runner.invoke(app, ["chat", "hello", "-m", "gemini-3-flash"])
+        assert result.exit_code == 0
+        assert mock_send.call_args[1]["model"] == "gemini-3-flash"
 
     def test_chat_with_profile(self):
-        with patch("repl.run_repl", new_callable=AsyncMock) as mock_repl:
+        with patch("chat.send_message", new_callable=AsyncMock, return_value="Hi") as mock_send:
             result = runner.invoke(app, ["chat", "-p", "work", "hello"])
         assert result.exit_code == 0
-        assert mock_repl.call_args[1]["profile"] == "work"
+        assert mock_send.call_args[1]["profile"] == "work"
+
+    def test_chat_single_message_with_continue(self):
+        with patch("chat.continue_chat", new_callable=AsyncMock, return_value="Continued!") as mock_cont:
+            result = runner.invoke(app, ["chat", "-c", "abc123", "follow up"])
+        assert result.exit_code == 0
+        mock_cont.assert_called_once()
+        assert mock_cont.call_args[0][0] == "follow up"
+        assert mock_cont.call_args[1]["metadata"] == ["c_abc123"]
 
     def test_chat_continue_with_cid(self):
         with patch("repl.run_repl", new_callable=AsyncMock) as mock_repl:
