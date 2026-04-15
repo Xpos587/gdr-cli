@@ -80,27 +80,38 @@ async def _poll_for_report(
     timeout_min: float = 30,
 ) -> DeepResearchResult:
     """Poll chat history until research report appears or timeout."""
+    from rich.console import Console
+    from rich.status import Status
+
+    console = Console(stderr=True)
     deadline = time.monotonic() + timeout_min * 60
-    print("  Research started on Gemini's side, waiting for completion...", file=sys.stderr)
 
-    while time.monotonic() < deadline:
-        await asyncio.sleep(poll_interval)
+    with Status(
+        "[bold blue]Waiting for research to complete...[/]",
+        spinner="dots",
+        console=console,
+    ) as status:
+        while time.monotonic() < deadline:
+            await asyncio.sleep(poll_interval)
 
-        chats = client._recent_chats
-        if not chats:
-            continue
+            chats = client._recent_chats
+            if not chats:
+                continue
 
-        cid = chats[0].cid if hasattr(chats[0], "cid") else str(chats[0])
-        if not cid:
-            continue
+            cid = chats[0].cid if hasattr(chats[0], "cid") else str(chats[0])
+            if not cid:
+                continue
 
-        report = await _extract_report_from_chat(client, cid)
-        if report:
-            print("  Report extracted from chat history.", file=sys.stderr)
-            return _make_result_with_text(report)
+            report = await _extract_report_from_chat(client, cid)
+            if report:
+                return _make_result_with_text(report)
 
-        elapsed = int(time.monotonic() - (deadline - timeout_min * 60))
-        print(f"  Still waiting... ({elapsed}s elapsed)", file=sys.stderr)
+            elapsed = int(time.monotonic() - (deadline - timeout_min * 60))
+            remaining = int(deadline - time.monotonic())
+            status.update(
+                f"[bold blue]Waiting for research to complete... "
+                f"({elapsed}s elapsed, timeout in {remaining}s)[/]"
+            )
 
     return DeepResearchResult.model_construct(plan=None, done=False, statuses=[])
 
