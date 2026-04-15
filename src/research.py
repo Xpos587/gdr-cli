@@ -123,8 +123,9 @@ async def run_deep_research(
     poll_interval: float = 10.0,
     auto_confirm: bool = True,
     on_status: Callable[[DeepResearchStatus], None] | None = None,
+    _cid_holder: list[str | None] | None = None,
 ) -> DeepResearchResult:
-    """Run a full deep research cycle: plan -> confirm -> poll -> result."""
+    """Run a full research cycle: plan -> confirm -> poll -> result."""
     auth = AuthManager(profile)
     cookies = auth.get_cookies()
 
@@ -144,6 +145,18 @@ async def run_deep_research(
                 raise
             plan = None
             logger.warning("Plan extraction failed, using fallback: poll for completion then extract from chat")
+
+        # Print CID as early as possible so user can track in web UI
+        cid = getattr(plan, "cid", None) if plan else None
+        if not cid:
+            chats = client._recent_chats
+            if chats:
+                cid = chats[0].cid if hasattr(chats[0], "cid") else str(chats[0])
+        if cid:
+            display_cid = cid.removeprefix("c_")
+            print(f"  Chat: https://gemini.google.com/app/{display_cid}", file=sys.stderr)
+            if _cid_holder is not None:
+                _cid_holder[0] = cid
 
         if plan and not auto_confirm:
             print(f"\nResearch Plan: {plan.title}", file=sys.stderr)
@@ -176,9 +189,13 @@ async def run_deep_research(
         await client.close()
 
 
-def format_result(result: DeepResearchResult) -> str:
+def format_result(result: DeepResearchResult, cid: str | None = None) -> str:
     """Format a DeepResearchResult for terminal output."""
     lines: list[str] = []
+
+    if cid:
+        display_cid = cid.removeprefix("c_")
+        lines.append(f"Chat: https://gemini.google.com/app/{display_cid}")
 
     status = "COMPLETED" if result.done else "INCOMPLETE"
     lines.append(f"Status: {status}")

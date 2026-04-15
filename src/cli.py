@@ -227,6 +227,7 @@ def research(
     """Run Gemini Deep Research on a topic."""
     from research import format_result, run_deep_research
 
+    cid_holder: list[str | None] = [None]
     try:
         result = asyncio.run(
             run_deep_research(
@@ -235,6 +236,7 @@ def research(
                 timeout_min=timeout,
                 poll_interval=poll_interval,
                 auto_confirm=no_confirm,
+                _cid_holder=cid_holder,
             )
         )
     except GDRError as e:
@@ -252,7 +254,7 @@ def research(
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)
 
-    report = format_result(result)
+    report = format_result(result, cid=cid_holder[0])
 
     out_path = output
     if not out_path and output_dir and result.text:
