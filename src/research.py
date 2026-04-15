@@ -165,8 +165,8 @@ async def run_deep_research(
             chat_kwargs["model"] = model
         chat = client.start_chat(**chat_kwargs)
 
-        # Send the research query as a regular message
-        output = await chat.send_message(query)
+        # Send the research query with deep_research=True to activate deep research mode
+        output = await chat.send_message(query, deep_research=True)
 
         # Try to get CID from chat
         cid = None
