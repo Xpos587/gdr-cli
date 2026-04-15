@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import json as _json
 import sys
+import time
 from typing import Callable
 
 from loguru import logger
@@ -60,6 +62,49 @@ def _status_callback(
     return _callback
 
 
+def _make_result_with_text(text: str, done: bool = True) -> DeepResearchResult:
+    """Build a DeepResearchResult with plain text (bypasses complex ModelOutput)."""
+    from gemini_webapi.types import ModelOutput, Candidate
+    return DeepResearchResult.model_construct(
+        plan=None, done=done, statuses=[],
+        final_output=ModelOutput.model_construct(
+            candidates=[Candidate.model_construct(text=text, text_delta=text)],
+            chosen=0,
+        ),
+    )
+
+
+async def _poll_for_report(
+    client: GeminiClient,
+    poll_interval: float = 10.0,
+    timeout_min: float = 30,
+) -> DeepResearchResult:
+    """Poll chat history until research report appears or timeout."""
+    deadline = time.monotonic() + timeout_min * 60
+    print("  Research started on Gemini's side, waiting for completion...", file=sys.stderr)
+
+    while time.monotonic() < deadline:
+        await asyncio.sleep(poll_interval)
+
+        chats = client._recent_chats
+        if not chats:
+            continue
+
+        cid = chats[0].cid if hasattr(chats[0], "cid") else str(chats[0])
+        if not cid:
+            continue
+
+        report = await _extract_report_from_chat(client, cid)
+        if report:
+            print("  Report extracted from chat history.", file=sys.stderr)
+            return _make_result_with_text(report)
+
+        elapsed = int(time.monotonic() - (deadline - timeout_min * 60))
+        print(f"  Still waiting... ({elapsed}s elapsed)", file=sys.stderr)
+
+    return DeepResearchResult.model_construct(plan=None, done=False, statuses=[])
+
+
 async def run_deep_research(
     query: str,
     profile: str = "default",
@@ -109,24 +154,11 @@ async def run_deep_research(
                 on_status=_status_callback(plan, on_status),
             )
         else:
-            result = await client.deep_research(
-                query,
-                poll_interval=poll_interval,
-                timeout=timeout_min * 60,
-                on_status=_status_callback(type("P", (), {"title": query})(), on_status),
+            # Fallback: research already started on Gemini's side.
+            # Poll chat history until report appears or timeout.
+            result = await _poll_for_report(
+                client, poll_interval=poll_interval, timeout_min=timeout_min,
             )
-
-        # Fallback: if no text and plan failed, try extracting from chat history
-        if not result.text and plan is None:
-            chats = client._recent_chats
-            cid = None
-            if chats:
-                cid = chats[0].cid if hasattr(chats[0], "cid") else str(chats[0])
-            if cid:
-                report = await _extract_report_from_chat(client, cid)
-                if report:
-                    result.text = report
-                    result.done = True
 
         return result
     finally:

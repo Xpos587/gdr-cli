@@ -4,7 +4,7 @@ import json
 import pytest
 import asyncio
 from unittest.mock import patch, MagicMock, AsyncMock
-from research import run_deep_research, format_result, _status_callback, _extract_report_from_chat
+from research import run_deep_research, format_result, _status_callback, _extract_report_from_chat, _poll_for_report
 from auth import AuthManager
 
 
@@ -329,9 +329,8 @@ class TestRunDeepResearch:
         mock_auth_cls.assert_called_once_with("work")
 
     def test_fallback_to_chat_history_on_plan_error(self):
-        """When plan extraction fails, research completes and report is extracted from chat."""
+        """When plan extraction fails, polls chat history for report."""
         from gemini_webapi.exceptions import GeminiError
-        from gemini_webapi.types import DeepResearchResult
 
         mock_client = MagicMock()
         mock_client.init = AsyncMock()
@@ -340,18 +339,14 @@ class TestRunDeepResearch:
         )
         mock_client.close = AsyncMock()
 
-        mock_result = MagicMock(spec=DeepResearchResult)
-        mock_result.plan = None
-        mock_result.statuses = []
-        mock_result.done = True
-        mock_result.text = ""
-        mock_client.deep_research = AsyncMock(return_value=mock_result)
-
         mock_report = "Fallback research report from chat history."
+        mock_poll_result = MagicMock()
+        mock_poll_result.done = True
+        mock_poll_result.text = mock_report
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
-                with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value=mock_report):
+                with patch("research._poll_for_report", new_callable=AsyncMock, return_value=mock_poll_result):
                     result = asyncio.run(run_deep_research("test", auto_confirm=True))
 
         assert result.done is True
@@ -408,3 +403,60 @@ class TestExtractReportFromChat:
         result = asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
 
         assert result is None
+
+
+class TestPollForReport:
+    def test_extracts_report_on_first_poll(self):
+        mock_client = MagicMock()
+        mock_client._recent_chats = [MagicMock(cid="c_abc")]
+        with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value="report"):
+            with patch("research.asyncio.sleep", new_callable=AsyncMock):
+                result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
+        assert result.done is True
+        assert result.text == "report"
+
+    def test_times_out_if_no_report(self):
+        mock_client = MagicMock()
+        mock_client._recent_chats = [MagicMock(cid="c_abc")]
+        call_count = 0
+        def fake_monotonic():
+            nonlocal call_count
+            call_count += 1
+            return 0.0 if call_count <= 4 else 99999.0
+        with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value=None):
+            with patch("research.asyncio.sleep", new_callable=AsyncMock):
+                with patch("research.time.monotonic", side_effect=fake_monotonic):
+                    result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
+        assert result.done is False
+
+    def test_skips_when_no_chats(self):
+        mock_client = MagicMock()
+        mock_client._recent_chats = None
+        call_count = 0
+        def fake_monotonic():
+            nonlocal call_count
+            call_count += 1
+            return 0.0 if call_count <= 2 else 99999.0
+        with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value="report") as mock_extract:
+            with patch("research.asyncio.sleep", new_callable=AsyncMock):
+                with patch("time.monotonic", side_effect=fake_monotonic):
+                    result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
+        mock_extract.assert_not_called()
+        assert result.done is False
+
+    def test_skips_when_no_cid(self):
+        mock_chat = MagicMock(spec=["__str__"])
+        type(mock_chat).__str__ = lambda self: ""
+        mock_client = MagicMock()
+        mock_client._recent_chats = [mock_chat]
+        call_count = 0
+        def fake_monotonic():
+            nonlocal call_count
+            call_count += 1
+            return 0.0 if call_count <= 2 else 99999.0
+        with patch("research._extract_report_from_chat", new_callable=AsyncMock) as mock_extract:
+            with patch("research.asyncio.sleep", new_callable=AsyncMock):
+                with patch("research.time.monotonic", side_effect=fake_monotonic):
+                    result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
+        mock_extract.assert_not_called()
+        assert result.done is False
