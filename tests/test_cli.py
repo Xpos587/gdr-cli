@@ -149,12 +149,12 @@ class TestChatsList:
 
     def test_chats_list_truncates_long_title(self):
         mock_chats = [
-            {"cid": "c_abc123", "title": "x" * 100, "is_pinned": False, "timestamp": 1745000000.0},
+            {"cid": "c_abc123def456789", "title": "x" * 100, "is_pinned": False, "timestamp": 1745000000.0},
         ]
         with patch("chat.list_recent_chats", new_callable=AsyncMock, return_value=mock_chats):
             result = runner.invoke(app, ["chats", "list"])
         assert result.exit_code == 0
-        assert "..." in result.output
+        assert "c_abc123def456789" in result.output
 
     def test_chats_list_untitled(self):
         mock_chats = [

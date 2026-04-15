@@ -113,7 +113,7 @@ def chats_list(
     table = Table(title="Recent Chats")
     table.add_column("#", style="dim", width=3)
     table.add_column("Title", style="bold", max_width=50)
-    table.add_column("CID", style="dim", max_width=20)
+    table.add_column("CID", style="dim")
     table.add_column("Date", style="dim")
 
     for i, c in enumerate(chats, 1):
@@ -122,7 +122,7 @@ def chats_list(
         title = c["title"] or "(untitled)"
         if len(title) > 50:
             title = title[:47] + "..."
-        table.add_row(str(i), f"{pin}{title}", c["cid"][:16] + "...", dt)
+        table.add_row(str(i), f"{pin}{title}", c["cid"], dt)
 
     console.print(table)
 
