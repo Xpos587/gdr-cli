@@ -1,0 +1,36 @@
+version: 2
+updates:
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "actions/*"
+        exclude:
+          - "actions/*-legacy"
+
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Ignore major version updates for stability
+      - dependency-name: "gemini-webapi"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typer"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pydantic"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pytest"
+        update-types: ["version-update:semver-major"]
+    groups:
+      dev-dependencies:
+        patterns:
+          - "pytest*"
+          - "pytest-*"
+          - "basedpyright"
+          - "ruff"
