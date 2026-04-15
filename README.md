@@ -1,5 +1,9 @@
 # gdr-cli
 
+[![CI](https://github.com/Xpos587/gdr-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/Xpos587/gdr-cli/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Gemini Deep Research CLI — run Google's Deep Research from the terminal.
 Shares authentication with [notebooklm-mcp-cli](https://github.com/jacob-bd/notebooklm-mcp-cli).
 
