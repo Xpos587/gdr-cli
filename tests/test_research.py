@@ -8,6 +8,19 @@ from research import run_deep_research, format_result, _status_callback, _extrac
 from auth import AuthManager
 
 
+def _create_mock_client_with_chat_mocks():
+    """Create a mock client with chat-related mocks for fallback path."""
+    mock_client = MagicMock()
+    mock_client.init = AsyncMock()
+    mock_client.close = AsyncMock()
+    # Add mocks for fallback path
+    mock_chat = MagicMock()
+    mock_chat.send_message = AsyncMock()
+    mock_client.start_chat = MagicMock(return_value=mock_chat)
+    mock_client.list_chats = MagicMock(return_value=[])
+    return mock_client
+
+
 class TestFormatResult:
     def test_formats_completed_result(self):
         plan = MagicMock()
@@ -178,8 +191,7 @@ class TestRunDeepResearch:
     def test_auto_confirm_skips_prompt(self):
         from gemini_webapi.types import DeepResearchPlan, DeepResearchResult
 
-        mock_client = MagicMock()
-        mock_client.init = AsyncMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_plan = MagicMock(spec=DeepResearchPlan)
         mock_plan.title = "Test"
         mock_plan.eta_text = "5 min"
@@ -194,7 +206,6 @@ class TestRunDeepResearch:
 
         mock_client.create_deep_research_plan = AsyncMock(return_value=mock_plan)
         mock_client.deep_research = AsyncMock(return_value=mock_result)
-        mock_client.close = AsyncMock()
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
@@ -206,8 +217,7 @@ class TestRunDeepResearch:
     def test_no_confirm_auto_confirm_false(self):
         from gemini_webapi.types import DeepResearchPlan, DeepResearchResult
 
-        mock_client = MagicMock()
-        mock_client.init = AsyncMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_plan = MagicMock(spec=DeepResearchPlan)
         mock_plan.title = "Test"
         mock_plan.eta_text = "5 min"
@@ -222,7 +232,6 @@ class TestRunDeepResearch:
 
         mock_client.create_deep_research_plan = AsyncMock(return_value=mock_plan)
         mock_client.deep_research = AsyncMock(return_value=mock_result)
-        mock_client.close = AsyncMock()
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
@@ -234,8 +243,7 @@ class TestRunDeepResearch:
     def test_no_confirm_cancelled(self):
         from gemini_webapi.types import DeepResearchPlan, DeepResearchResult
 
-        mock_client = MagicMock()
-        mock_client.init = AsyncMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_plan = MagicMock(spec=DeepResearchPlan)
         mock_plan.title = "Test"
         mock_plan.eta_text = "5 min"
@@ -243,7 +251,6 @@ class TestRunDeepResearch:
         mock_plan.query = "test"
 
         mock_client.create_deep_research_plan = AsyncMock(return_value=mock_plan)
-        mock_client.close = AsyncMock()
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
@@ -255,8 +262,7 @@ class TestRunDeepResearch:
     def test_passes_timeout_and_poll_interval(self):
         from gemini_webapi.types import DeepResearchPlan, DeepResearchResult
 
-        mock_client = MagicMock()
-        mock_client.init = AsyncMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_plan = MagicMock(spec=DeepResearchPlan)
         mock_plan.title = "T"
         mock_plan.eta_text = None
@@ -271,7 +277,6 @@ class TestRunDeepResearch:
 
         mock_client.create_deep_research_plan = AsyncMock(return_value=mock_plan)
         mock_client.deep_research = AsyncMock(return_value=mock_result)
-        mock_client.close = AsyncMock()
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
@@ -286,10 +291,8 @@ class TestRunDeepResearch:
     def test_client_closed_on_error(self):
         from gemini_webapi.exceptions import UsageLimitExceeded
 
-        mock_client = MagicMock()
-        mock_client.init = AsyncMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_client.create_deep_research_plan = AsyncMock(side_effect=UsageLimitExceeded("limit"))
-        mock_client.close = AsyncMock()
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
@@ -301,8 +304,7 @@ class TestRunDeepResearch:
     def test_passes_profile(self):
         from gemini_webapi.types import DeepResearchPlan, DeepResearchResult
 
-        mock_client = MagicMock()
-        mock_client.init = AsyncMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_plan = MagicMock(spec=DeepResearchPlan)
         mock_plan.title = "T"
         mock_plan.eta_text = None
@@ -317,7 +319,6 @@ class TestRunDeepResearch:
 
         mock_client.create_deep_research_plan = AsyncMock(return_value=mock_plan)
         mock_client.deep_research = AsyncMock(return_value=mock_result)
-        mock_client.close = AsyncMock()
 
         with patch("research.AuthManager") as mock_auth_cls:
             mock_auth_mgr = MagicMock()
@@ -332,12 +333,10 @@ class TestRunDeepResearch:
         """When plan extraction fails, polls chat history for report."""
         from gemini_webapi.exceptions import GeminiError
 
-        mock_client = MagicMock()
-        mock_client.init = AsyncMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_client.create_deep_research_plan = AsyncMock(
             side_effect=GeminiError("Gemini did not return a deep research plan.")
         )
-        mock_client.close = AsyncMock()
 
         mock_report = "Fallback research report from chat history."
         mock_poll_result = MagicMock()
@@ -357,7 +356,7 @@ class TestRunDeepResearch:
 class TestExtractReportFromChat:
     def test_extracts_report_from_chat_success(self):
         """Verify the helper extracts report from the nested chat data path."""
-        mock_client = MagicMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         report_text = "This is the full research report."
         # Build nested structure matching data[0][0][3][0][0][30][0][4]
         # Each level needs enough padding to support the index
@@ -386,7 +385,7 @@ class TestExtractReportFromChat:
         assert result == report_text
 
     def test_returns_none_on_empty_response(self):
-        mock_client = MagicMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_response = MagicMock()
         mock_response.text = ")]}'\n5"
         mock_client._batch_execute = AsyncMock(return_value=mock_response)
@@ -397,7 +396,7 @@ class TestExtractReportFromChat:
         assert result is None
 
     def test_returns_none_on_exception(self):
-        mock_client = MagicMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_client._batch_execute = AsyncMock(side_effect=RuntimeError("network error"))
 
         result = asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
@@ -406,14 +405,14 @@ class TestExtractReportFromChat:
 
     def test_propagates_usage_limit_exceeded(self):
         from gemini_webapi.exceptions import UsageLimitExceeded
-        mock_client = MagicMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_client._batch_execute = AsyncMock(side_effect=UsageLimitExceeded("limit"))
         with pytest.raises(UsageLimitExceeded):
             asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
 
     def test_propagates_temporarily_blocked(self):
         from gemini_webapi.exceptions import TemporarilyBlocked
-        mock_client = MagicMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_client._batch_execute = AsyncMock(side_effect=TemporarilyBlocked("blocked"))
         with pytest.raises(TemporarilyBlocked):
             asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
@@ -421,7 +420,7 @@ class TestExtractReportFromChat:
 
 class TestPollForReport:
     def test_extracts_report_on_first_poll(self):
-        mock_client = MagicMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_client._recent_chats = [MagicMock(cid="c_abc")]
         with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value="report"):
             with patch("research.asyncio.sleep", new_callable=AsyncMock):
@@ -430,7 +429,7 @@ class TestPollForReport:
         assert result.text == "report"
 
     def test_times_out_if_no_report(self):
-        mock_client = MagicMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_client._recent_chats = [MagicMock(cid="c_abc")]
         call_count = 0
         def fake_monotonic():
@@ -444,7 +443,7 @@ class TestPollForReport:
         assert result.done is False
 
     def test_skips_when_no_chats(self):
-        mock_client = MagicMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_client._recent_chats = None
         call_count = 0
         def fake_monotonic():
@@ -461,7 +460,7 @@ class TestPollForReport:
     def test_skips_when_no_cid(self):
         mock_chat = MagicMock(spec=["__str__"])
         type(mock_chat).__str__ = lambda self: ""
-        mock_client = MagicMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_client._recent_chats = [mock_chat]
         call_count = 0
         def fake_monotonic():
@@ -476,7 +475,7 @@ class TestPollForReport:
         assert result.done is False
 
     def test_bails_after_max_fails(self):
-        mock_client = MagicMock()
+        mock_client = _create_mock_client_with_chat_mocks()
         mock_client._recent_chats = [MagicMock(cid="c_abc")]
         call_count = 0
         def fake_monotonic():

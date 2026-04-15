@@ -155,21 +155,38 @@ async def run_deep_research(
 
     try:
         try:
-            plan = await client.create_deep_research_plan(query, model=model)
+            # Don't pass model=None to create_deep_research_plan
+            plan_kwargs = {}
+            if model:
+                plan_kwargs["model"] = model
+            plan = await client.create_deep_research_plan(query, **plan_kwargs)
         except Exception as e:
             # UsageLimitExceeded must propagate — don't swallow it
             from gemini_webapi.exceptions import UsageLimitExceeded
             if isinstance(e, UsageLimitExceeded):
                 raise
             plan = None
-            logger.warning("Plan extraction failed, using fallback: poll for completion then extract from chat")
+            logger.warning("Plan extraction failed, using fallback: create chat then poll for completion")
 
         # Print CID as early as possible so user can track in web UI
         cid = getattr(plan, "cid", None) if plan else None
         if not cid:
-            chats = client._recent_chats
+            # Plan creation failed — create chat explicitly to get CID
+            logger.info("Creating research chat to obtain CID")
+            chat_kwargs = {}
+            if model:
+                chat_kwargs["model"] = model
+            chat = client.start_chat(**chat_kwargs)
+            await chat.send_message(query)
+            # Refresh chat list to get the newly created chat
+            chats = client.list_chats()
             if chats:
-                cid = chats[0].cid if hasattr(chats[0], "cid") else str(chats[0])
+                # Find the most recent chat (highest timestamp)
+                latest_chat = max(chats, key=lambda c: c.timestamp)
+                cid = latest_chat.cid
+                logger.debug(f"Created research chat: {cid}")
+            else:
+                logger.warning("Failed to get chat list after creating research chat")
         if cid:
             display_cid = cid.removeprefix("c_")
             print(f"  Chat: https://gemini.google.com/app/{display_cid}", file=sys.stderr)
