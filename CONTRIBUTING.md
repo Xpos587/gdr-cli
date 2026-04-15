@@ -41,7 +41,7 @@ src/
 ├── config.py      →  Path resolution, GDRConfig
 ├── chat.py        →  Gemini chat sessions (send, continue, list, history, delete)
 ├── repl.py        →  Interactive REPL (prompt_toolkit)
-├── research.py    →  Deep research orchestration (plan → confirm → poll → result)
+├── research.py    →  Deep research orchestration (plan → confirm → poll → result, fallback chat extraction)
 ├── cdp.py         →  Chrome DevTools Protocol login (cookie extraction)
 └── exceptions.py  →  GDRError hierarchy
 ```

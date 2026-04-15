@@ -14,6 +14,20 @@ from rich.console import Console
 __version__ = "0.1.0"
 from exceptions import GDRError, AuthError
 
+_CID_PREFIX = "c_"
+
+
+def _display_cid(cid: str) -> str:
+    """Strip c_ prefix for user-facing display."""
+    return cid.removeprefix(_CID_PREFIX)
+
+
+def _normalize_cid(cid: str) -> str:
+    """Ensure c_ prefix for API calls."""
+    if cid and not cid.startswith(_CID_PREFIX):
+        return _CID_PREFIX + cid
+    return cid
+
 app = typer.Typer(
     name="gdr",
     help="Gemini Deep Research CLI — chat and deep research via HTTP, shares auth with nlm",
@@ -64,7 +78,7 @@ def chat(
         metadata = None
         if continue_chat is not None:
             if continue_chat:
-                metadata = [continue_chat]
+                metadata = [_normalize_cid(continue_chat)]
             else:
                 from chat import list_recent_chats
                 chats = asyncio.run(list_recent_chats(profile=profile))
@@ -122,7 +136,7 @@ def chats_list(
         title = c["title"] or "(untitled)"
         if len(title) > 50:
             title = title[:47] + "..."
-        table.add_row(str(i), f"{pin}{title}", c["cid"], dt)
+        table.add_row(str(i), f"{pin}{title}", _display_cid(c["cid"]), dt)
 
     console.print(table)
 
@@ -140,6 +154,7 @@ def chats_show(
     """Show conversation history for a chat."""
     from chat import read_chat_history
 
+    cid = _normalize_cid(cid)
     try:
         history = asyncio.run(read_chat_history(cid, limit=limit, profile=profile))
     except GDRError as e:
@@ -149,10 +164,10 @@ def chats_show(
         raise typer.Exit(2)
 
     if history is None:
-        console.print(f"[yellow]Chat not found: {cid}[/yellow]")
+        console.print(f"[yellow]Chat not found: {_display_cid(cid)}[/yellow]")
         raise typer.Exit(1)
 
-    console.print(f"[bold]Chat:[/bold] {cid}")
+    console.print(f"[bold]Chat:[/bold] {_display_cid(cid)}")
     console.print(f"[bold]Turns:[/bold] {len(history['turns'])}\n")
 
     for turn in history["turns"]:

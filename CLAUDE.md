@@ -22,7 +22,7 @@ src/
 ├── config.py      # Path resolution + GDRConfig — ~/.notebooklm-mcp-cli/ layout
 ├── chat.py        # Gemini chat session management — send, continue, list, read history, delete
 ├── repl.py        # Interactive REPL (prompt_toolkit) — multi-turn chat with /help, /quit, /cid
-├── research.py    # Deep research orchestration — plan → confirm → poll → result
+├── research.py    # Deep research orchestration — plan → confirm → poll → result, fallback chat extraction
 ├── cdp.py         # Chrome DevTools Protocol login — cookie extraction
 └── exceptions.py  # GDRError, AuthError, AccountMismatchError, ProfileNotFoundError
 tests/             # pytest (testpaths = tests/, pythonpath = src/)
@@ -46,3 +46,4 @@ data/              # Static data files
 - Async throughout — CLI commands use `asyncio.run()`
 - Errors surface as `GDRError` subclasses with optional `hint` field
 - Exit codes: 0=ok, 1=error, 2=GDRError, 3=usage limit, 130=interrupt
+- Chat IDs: displayed without `c_` prefix (matches Gemini web URLs), normalized to `c_` prefixed for API calls

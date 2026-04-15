@@ -112,6 +112,12 @@ class TestChatCommand:
         assert result.exit_code == 0
         assert mock_repl.call_args[1]["metadata"] == ["c_abc123"]
 
+    def test_chat_continue_with_cid_no_prefix(self):
+        with patch("repl.run_repl", new_callable=AsyncMock) as mock_repl:
+            result = runner.invoke(app, ["chat", "-c", "abc123"])
+        assert result.exit_code == 0
+        assert mock_repl.call_args[1]["metadata"] == ["c_abc123"]
+
     def test_chat_continue_without_cid_fetches_last(self):
         mock_chats = [{"cid": "c_last", "title": "Last", "is_pinned": False, "timestamp": 1.0}]
         with patch("chat.list_recent_chats", new_callable=AsyncMock, return_value=mock_chats):
@@ -154,7 +160,7 @@ class TestChatsList:
         with patch("chat.list_recent_chats", new_callable=AsyncMock, return_value=mock_chats):
             result = runner.invoke(app, ["chats", "list"])
         assert result.exit_code == 0
-        assert "c_abc123def456789" in result.output
+        assert "abc123def456789" in result.output
 
     def test_chats_list_untitled(self):
         mock_chats = [
@@ -192,6 +198,18 @@ class TestChatsShow:
         assert result.exit_code == 0
         assert "Hello" in result.output
         assert "Hi there!" in result.output
+        assert "abc123" in result.output
+        assert "c_abc123" not in result.output
+
+    def test_chats_show_cid_without_prefix(self):
+        mock_history = {
+            "cid": "c_abc123",
+            "turns": [],
+        }
+        with patch("chat.read_chat_history", new_callable=AsyncMock, return_value=mock_history) as mock_read:
+            result = runner.invoke(app, ["chats", "show", "abc123"])
+        assert result.exit_code == 0
+        mock_read.assert_called_once_with("c_abc123", limit=20, profile="default")
 
     def test_chats_show_not_found(self):
         with patch("chat.read_chat_history", new_callable=AsyncMock, return_value=None):

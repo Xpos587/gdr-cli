@@ -10,6 +10,7 @@ Shares authentication with [notebooklm-mcp-cli](https://github.com/jacob-bd/note
 ## Features
 
 - **Deep Research** — Run Gemini's multi-source deep research investigations
+- **Fallback Extraction** — Automatically extracts research reports from chat history when upstream parsing fails
 - **Chat** — Interactive REPL and single-message chat with Gemini
 - **Session Management** — List, view, and continue past conversations
 - **Shared Auth** — Login once, use with both gdr and nlm
@@ -68,7 +69,7 @@ gdr chat "Explain the difference between TCP and UDP"
 # Continue last conversation
 gdr chat -c
 
-# Continue specific conversation
+# Continue specific conversation (with or without c_ prefix)
 gdr chat -c <chat-id>
 ```
 
@@ -84,6 +85,8 @@ gdr chats show <chat-id>
 # Limit turns displayed
 gdr chats show <chat-id> -n 10
 ```
+
+Chat IDs are displayed without the `c_` prefix (matching Gemini web URLs like `gemini.google.com/app/<id>`). The `c_` prefix is added automatically when needed for API calls.
 
 ### Doctor
 
