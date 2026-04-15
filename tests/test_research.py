@@ -404,6 +404,20 @@ class TestExtractReportFromChat:
 
         assert result is None
 
+    def test_propagates_usage_limit_exceeded(self):
+        from gemini_webapi.exceptions import UsageLimitExceeded
+        mock_client = MagicMock()
+        mock_client._batch_execute = AsyncMock(side_effect=UsageLimitExceeded("limit"))
+        with pytest.raises(UsageLimitExceeded):
+            asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
+
+    def test_propagates_temporarily_blocked(self):
+        from gemini_webapi.exceptions import TemporarilyBlocked
+        mock_client = MagicMock()
+        mock_client._batch_execute = AsyncMock(side_effect=TemporarilyBlocked("blocked"))
+        with pytest.raises(TemporarilyBlocked):
+            asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
+
 
 class TestPollForReport:
     def test_extracts_report_on_first_poll(self):
@@ -459,4 +473,18 @@ class TestPollForReport:
                 with patch("research.time.monotonic", side_effect=fake_monotonic):
                     result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=1))
         mock_extract.assert_not_called()
+        assert result.done is False
+
+    def test_bails_after_max_fails(self):
+        mock_client = MagicMock()
+        mock_client._recent_chats = [MagicMock(cid="c_abc")]
+        call_count = 0
+        def fake_monotonic():
+            nonlocal call_count
+            call_count += 1
+            return 0.0
+        with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value=None):
+            with patch("research.asyncio.sleep", new_callable=AsyncMock):
+                with patch("research.time.monotonic", side_effect=fake_monotonic):
+                    result = asyncio.run(_poll_for_report(mock_client, poll_interval=0.1, timeout_min=30))
         assert result.done is False

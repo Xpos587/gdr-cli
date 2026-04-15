@@ -42,6 +42,9 @@ async def _extract_report_from_chat(client: GeminiClient, cid: str) -> str | Non
         logger.debug(f"Extracted report from chat history ({len(report)} chars)")
         return report
     except Exception as e:
+        from gemini_webapi.exceptions import UsageLimitExceeded, TemporarilyBlocked
+        if isinstance(e, (UsageLimitExceeded, TemporarilyBlocked)):
+            raise
         logger.warning(f"Failed to extract report from chat history: {e}")
         return None
 
@@ -85,6 +88,8 @@ async def _poll_for_report(
 
     console = Console(stderr=True)
     deadline = time.monotonic() + timeout_min * 60
+    max_fails = 6
+    no_progress = 0
 
     with Status(
         "[bold blue]Waiting for research to complete...[/]",
@@ -96,6 +101,9 @@ async def _poll_for_report(
 
             chats = client._recent_chats
             if not chats:
+                no_progress += 1
+                if no_progress >= max_fails:
+                    logger.warning("No chats found after %d polls — research may not have started", max_fails)
                 continue
 
             cid = chats[0].cid if hasattr(chats[0], "cid") else str(chats[0])
@@ -105,6 +113,15 @@ async def _poll_for_report(
             report = await _extract_report_from_chat(client, cid)
             if report:
                 return _make_result_with_text(report)
+
+            no_progress += 1
+            if no_progress >= max_fails:
+                print(
+                    "\n  [yellow]Warning:[/yellow] No progress after "
+                    f"{no_progress} polls. Research may have hit a usage limit.",
+                    file=sys.stderr,
+                )
+                return DeepResearchResult.model_construct(plan=None, done=False, statuses=[])
 
             elapsed = int(time.monotonic() - (deadline - timeout_min * 60))
             remaining = int(deadline - time.monotonic())
