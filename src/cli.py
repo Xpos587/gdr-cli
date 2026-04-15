@@ -28,6 +28,21 @@ def _normalize_cid(cid: str) -> str:
         return _CID_PREFIX + cid
     return cid
 
+
+def _handle_api_error(e: Exception) -> int | None:
+    """Handle known gemini_webapi exceptions. Returns exit code or None if unhandled."""
+    from gemini_webapi.exceptions import UsageLimitExceeded, TemporarilyBlocked
+
+    if isinstance(e, UsageLimitExceeded):
+        console.print("[red]Error:[/red] Deep Research usage limit exceeded.")
+        console.print("Wait a while or check your Gemini Advanced subscription.")
+        return 3
+    if isinstance(e, TemporarilyBlocked):
+        console.print("[red]Error:[/red] IP temporarily blocked by Google (429).")
+        console.print("Try again in a few minutes, use a different proxy, or switch networks.")
+        return 3
+    return None
+
 app = typer.Typer(
     name="gdr",
     help="Gemini Deep Research CLI — chat and deep research via HTTP, shares auth with nlm",
@@ -92,6 +107,9 @@ def chat(
             console.print(f"[dim]Hint: {e.hint}[/dim]")
         raise typer.Exit(2)
     except Exception as e:
+        code = _handle_api_error(e)
+        if code is not None:
+            raise typer.Exit(code)
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)
 
@@ -162,6 +180,12 @@ def chats_show(
         if e.hint:
             console.print(f"[dim]Hint: {e.hint}[/dim]")
         raise typer.Exit(2)
+    except Exception as e:
+        code = _handle_api_error(e)
+        if code is not None:
+            raise typer.Exit(code)
+        console.print(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
 
     if history is None:
         console.print(f"[yellow]Chat not found: {_display_cid(cid)}[/yellow]")
@@ -222,12 +246,9 @@ def research(
         console.print("\n[yellow]Interrupted.[/yellow]")
         raise typer.Exit(130)
     except Exception as e:
-        from gemini_webapi.exceptions import UsageLimitExceeded
-
-        if isinstance(e, UsageLimitExceeded):
-            console.print("[red]Error:[/red] Deep Research usage limit exceeded.")
-            console.print("Wait a while or check your Gemini Advanced subscription.")
-            raise typer.Exit(3)
+        code = _handle_api_error(e)
+        if code is not None:
+            raise typer.Exit(code)
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)
 

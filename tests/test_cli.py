@@ -89,6 +89,20 @@ class TestErrorHandling:
             result = runner.invoke(app, ["research", "test"])
         assert result.exit_code == 2
 
+    def test_research_usage_limit(self):
+        from gemini_webapi.exceptions import UsageLimitExceeded
+        with patch("research.run_deep_research", new_callable=AsyncMock, side_effect=UsageLimitExceeded("limit")):
+            result = runner.invoke(app, ["research", "test"])
+        assert result.exit_code == 3
+        assert "usage limit" in result.output.lower()
+
+    def test_research_ip_blocked(self):
+        from gemini_webapi.exceptions import TemporarilyBlocked
+        with patch("research.run_deep_research", new_callable=AsyncMock, side_effect=TemporarilyBlocked("blocked")):
+            result = runner.invoke(app, ["research", "test"])
+        assert result.exit_code == 3
+        assert "blocked" in result.output.lower()
+
 
 class TestChatCommand:
     def test_chat_single_message(self):
