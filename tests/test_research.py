@@ -1,9 +1,10 @@
 """Tests for research.py — orchestration (mocked GeminiClient)."""
 
+import json
 import pytest
 import asyncio
 from unittest.mock import patch, MagicMock, AsyncMock
-from research import run_deep_research, format_result, _status_callback
+from research import run_deep_research, format_result, _status_callback, _extract_report_from_chat
 from auth import AuthManager
 
 
@@ -90,6 +91,16 @@ class TestFormatResult:
 
         output = format_result(result)
         assert "3" in output
+
+    def test_format_result_no_text_no_plan(self):
+        result = MagicMock()
+        result.plan = None
+        result.statuses = []
+        result.done = True
+        result.text = ""
+        output = format_result(result)
+        assert "COMPLETED" in output
+        assert "No report text returned" in output
 
 
 class TestStatusCallback:
@@ -273,14 +284,16 @@ class TestRunDeepResearch:
         assert call_kwargs[1]["timeout"] == 900
 
     def test_client_closed_on_error(self):
+        from gemini_webapi.exceptions import UsageLimitExceeded
+
         mock_client = MagicMock()
         mock_client.init = AsyncMock()
-        mock_client.create_deep_research_plan = AsyncMock(side_effect=RuntimeError("fail"))
+        mock_client.create_deep_research_plan = AsyncMock(side_effect=UsageLimitExceeded("limit"))
         mock_client.close = AsyncMock()
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
-                with pytest.raises(RuntimeError, match="fail"):
+                with pytest.raises(UsageLimitExceeded):
                     asyncio.run(run_deep_research("test"))
 
         mock_client.close.assert_called_once()
@@ -314,3 +327,84 @@ class TestRunDeepResearch:
                 asyncio.run(run_deep_research("q", profile="work"))
 
         mock_auth_cls.assert_called_once_with("work")
+
+    def test_fallback_to_chat_history_on_plan_error(self):
+        """When plan extraction fails, research completes and report is extracted from chat."""
+        from gemini_webapi.exceptions import GeminiError
+        from gemini_webapi.types import DeepResearchResult
+
+        mock_client = MagicMock()
+        mock_client.init = AsyncMock()
+        mock_client.create_deep_research_plan = AsyncMock(
+            side_effect=GeminiError("Gemini did not return a deep research plan.")
+        )
+        mock_client.close = AsyncMock()
+
+        mock_result = MagicMock(spec=DeepResearchResult)
+        mock_result.plan = None
+        mock_result.statuses = []
+        mock_result.done = True
+        mock_result.text = ""
+        mock_client.deep_research = AsyncMock(return_value=mock_result)
+
+        mock_report = "Fallback research report from chat history."
+
+        with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
+            with patch("research.GeminiClient", return_value=mock_client):
+                with patch("research._extract_report_from_chat", new_callable=AsyncMock, return_value=mock_report):
+                    result = asyncio.run(run_deep_research("test", auto_confirm=True))
+
+        assert result.done is True
+        assert result.text == mock_report
+        mock_client.close.assert_called_once()
+
+
+class TestExtractReportFromChat:
+    def test_extracts_report_from_chat_success(self):
+        """Verify the helper extracts report from the nested chat data path."""
+        mock_client = MagicMock()
+        report_text = "This is the full research report."
+        # Build nested structure matching data[0][0][3][0][0][30][0][4]
+        # Each level needs enough padding to support the index
+        level6 = [None] * 5
+        level6[4] = report_text
+        level5 = [level6]  # [0] -> level6
+        level4 = [None] * 31
+        level4[30] = level5  # [30] -> level5
+        level3 = [level4]  # [0] -> level4
+        level2 = [level3]  # [0] -> level3
+        level1 = [None] * 4
+        level1[3] = level2  # [3] -> level2
+        level0 = [level1]  # [0] -> level1
+        data = [level0]  # [0] -> level0
+        data_json_str = json.dumps(data)
+        # Frame format: [metadata, ..., payload_json_string]
+        frame = [None, None, data_json_str]
+
+        mock_response = MagicMock()
+        mock_response.text = ")]}'\n5"
+        mock_client._batch_execute = AsyncMock(return_value=mock_response)
+
+        with patch("gemini_webapi.utils.extract_json_from_response", return_value=[frame]):
+            result = asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
+
+        assert result == report_text
+
+    def test_returns_none_on_empty_response(self):
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.text = ")]}'\n5"
+        mock_client._batch_execute = AsyncMock(return_value=mock_response)
+
+        with patch("gemini_webapi.utils.extract_json_from_response", return_value=[]):
+            result = asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
+
+        assert result is None
+
+    def test_returns_none_on_exception(self):
+        mock_client = MagicMock()
+        mock_client._batch_execute = AsyncMock(side_effect=RuntimeError("network error"))
+
+        result = asyncio.run(_extract_report_from_chat(mock_client, "c_abc"))
+
+        assert result is None
