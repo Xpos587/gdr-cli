@@ -138,8 +138,13 @@ def chat(
     ),
 ):
     """Chat with Gemini. No prompt enters interactive mode."""
+    import sys
     import chat as _chat_mod
     from rich.markdown import Markdown
+
+    # Read from stdin if piped input and no prompt argument
+    if prompt is None and not sys.stdin.isatty():
+        prompt = sys.stdin.read().strip()
 
     try:
         metadata = None
