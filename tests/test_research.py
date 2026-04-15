@@ -201,9 +201,10 @@ class TestRunDeepResearch:
         mock_result.done = True
         mock_result.text = "Report"
 
-        # Mock chat.send_message to return ModelOutput with .text property
+        # Mock chat.send_message to return ModelOutput with .text property and plan
         mock_output = MagicMock(spec=ModelOutput)
         mock_output.text = "Report"
+        mock_output.deep_research_plan = None  # No plan, single call
         mock_chat = MagicMock()
         mock_chat.send_message = AsyncMock(return_value=mock_output)
         mock_client.start_chat = MagicMock(return_value=mock_chat)
@@ -217,12 +218,41 @@ class TestRunDeepResearch:
         # Verify deep_research=True was passed
         mock_chat.send_message.assert_called_once_with("test", deep_research=True)
 
+    def test_auto_confirm_confirms_plan_when_present(self):
+        """Test that auto_confirm sends confirmation when plan is returned."""
+        from gemini_webapi.types import ModelOutput, DeepResearchPlan
+
+        mock_client = _create_mock_client_with_chat_mocks()
+
+        # First call returns a plan, second call returns the research result
+        mock_output_with_plan = MagicMock(spec=ModelOutput)
+        mock_output_with_plan.text = "Here's the research plan..."
+        mock_plan = MagicMock(spec=DeepResearchPlan)
+        mock_plan.title = "Test Research"
+        mock_plan.confirm_prompt = "Start research"
+        mock_output_with_plan.deep_research_plan = mock_plan
+
+        mock_output_result = MagicMock(spec=ModelOutput)
+        mock_output_result.text = "Research results..."
+
+        mock_chat = MagicMock()
+        mock_chat.send_message = AsyncMock(
+            side_effect=[mock_output_with_plan, mock_output_result]
+        )
+        mock_client.start_chat = MagicMock(return_value=mock_chat)
+
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
                 result = asyncio.run(run_deep_research("test", auto_confirm=True))
 
         assert result.done is True
-        assert result.text == "Report"
+        assert result.text == "Research results..."
+        # Should have called send_message twice: query + confirmation
+        assert mock_chat.send_message.call_count == 2
+        # First call with query
+        mock_chat.send_message.assert_any_call("test", deep_research=True)
+        # Second call with confirmation
+        mock_chat.send_message.assert_any_call("Start research", deep_research=True)
 
     def test_no_confirm_auto_confirm_false(self):
         from gemini_webapi.types import ModelOutput
@@ -232,6 +262,7 @@ class TestRunDeepResearch:
         # Mock chat.send_message to return ModelOutput with .text property
         mock_output = MagicMock(spec=ModelOutput)
         mock_output.text = "Report"
+        mock_output.deep_research_plan = None  # No plan
         mock_chat = MagicMock()
         mock_chat.send_message = AsyncMock(return_value=mock_output)
         mock_client.start_chat = MagicMock(return_value=mock_chat)
@@ -255,6 +286,7 @@ class TestRunDeepResearch:
         # Mock chat.send_message to return ModelOutput with .text property
         mock_output = MagicMock(spec=ModelOutput)
         mock_output.text = "Report"
+        mock_output.deep_research_plan = None  # No plan
         mock_chat = MagicMock()
         mock_chat.send_message = AsyncMock(return_value=mock_output)
         mock_client.start_chat = MagicMock(return_value=mock_chat)
@@ -276,6 +308,7 @@ class TestRunDeepResearch:
         # Mock chat.send_message to return ModelOutput with .text property
         mock_output = MagicMock(spec=ModelOutput)
         mock_output.text = "R"
+        mock_output.deep_research_plan = None  # No plan
         mock_chat = MagicMock()
         mock_chat.send_message = AsyncMock(return_value=mock_output)
         mock_client.start_chat = MagicMock(return_value=mock_chat)
@@ -314,6 +347,7 @@ class TestRunDeepResearch:
         # Mock chat.send_message to return ModelOutput with .text property
         mock_output = MagicMock(spec=ModelOutput)
         mock_output.text = "R"
+        mock_output.deep_research_plan = None  # No plan
         mock_chat = MagicMock()
         mock_chat.send_message = AsyncMock(return_value=mock_output)
         mock_client.start_chat = MagicMock(return_value=mock_chat)

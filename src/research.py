@@ -168,6 +168,14 @@ async def run_deep_research(
         # Send the research query with deep_research=True to activate deep research mode
         output = await chat.send_message(query, deep_research=True)
 
+        # Check if a deep research plan was returned
+        plan = getattr(output, 'deep_research_plan', None)
+        if plan and auto_confirm:
+            # Automatically confirm and start the research
+            confirm_prompt = getattr(plan, 'confirm_prompt', None) or "Start research"
+            print(f"  [bold]Starting research:[/bold] {plan.title or query}", file=sys.stderr)
+            output = await chat.send_message(confirm_prompt, deep_research=True)
+
         # Try to get CID from chat
         cid = None
         chats = client.list_chats()
