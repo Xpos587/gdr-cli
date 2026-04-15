@@ -154,70 +154,34 @@ async def run_deep_research(
     await client.init(timeout=timeout_min * 60)
 
     try:
-        try:
-            # Don't pass model=None to create_deep_research_plan
-            plan_kwargs = {}
-            if model:
-                plan_kwargs["model"] = model
-            plan = await client.create_deep_research_plan(query, **plan_kwargs)
-        except Exception as e:
-            # UsageLimitExceeded must propagate — don't swallow it
-            from gemini_webapi.exceptions import UsageLimitExceeded
-            if isinstance(e, UsageLimitExceeded):
-                raise
-            plan = None
-            logger.warning("Plan extraction failed, using fallback: create chat then poll for completion")
+        # Note: --model flag is not supported for deep research due to upstream API limitations.
+        # deep_research() doesn't accept model parameter and calls create_deep_research_plan() internally.
+        # If you need model selection, use gdr chat instead.
+        if model:
+            console.print("[yellow]Warning:[/yellow] --model flag is not supported for deep research.")
+            console.print("[dim]Model selection is available for regular chat only.[/dim]")
 
-        # Print CID as early as possible so user can track in web UI
-        cid = getattr(plan, "cid", None) if plan else None
-        if not cid:
-            # Plan creation failed — create chat explicitly to get CID
-            logger.info("Creating research chat to obtain CID")
-            chat_kwargs = {}
-            if model:
-                chat_kwargs["model"] = model
-            chat = client.start_chat(**chat_kwargs)
-            await chat.send_message(query)
-            # Refresh chat list to get the newly created chat
-            chats = client.list_chats()
-            if chats:
-                # Find the most recent chat (highest timestamp)
-                latest_chat = max(chats, key=lambda c: c.timestamp)
-                cid = latest_chat.cid
-                logger.debug(f"Created research chat: {cid}")
-            else:
-                logger.warning("Failed to get chat list after creating research chat")
+        # For non-auto-confirm mode, we need to show plan first and ask for confirmation.
+        # But deep_research() doesn't support this, so we'll just run it directly.
+        # The --no-confirm flag is mainly useful to skip the "Press Enter" prompt.
+
+        result = await client.deep_research(
+            query,
+            poll_interval=poll_interval,
+            timeout=timeout_min * 60,
+            on_status=lambda s: None,  # Simple callback for now
+        )
+
+        # Try to get CID from result plan
+        cid = None
+        if result.plan:
+            cid = getattr(result.plan, "cid", None)
+
         if cid:
             display_cid = cid.removeprefix("c_")
             print(f"  Chat: https://gemini.google.com/app/{display_cid}", file=sys.stderr)
             if _cid_holder is not None:
                 _cid_holder[0] = cid
-
-        if plan and not auto_confirm:
-            print(f"\nResearch Plan: {plan.title}", file=sys.stderr)
-            print(f"ETA: {plan.eta_text}", file=sys.stderr)
-            for i, step in enumerate(plan.steps, 1):
-                print(f"  {i}. {step}", file=sys.stderr)
-
-            try:
-                input("\nPress Enter to start research, Ctrl+C to cancel...")
-            except (KeyboardInterrupt, EOFError):
-                print("\nCancelled.", file=sys.stderr)
-                return DeepResearchResult(plan=plan, done=False)
-
-        if plan:
-            result = await client.deep_research(
-                plan.query or query,
-                poll_interval=poll_interval,
-                timeout=timeout_min * 60,
-                on_status=_status_callback(plan, on_status),
-            )
-        else:
-            # Fallback: research already started on Gemini's side.
-            # Poll chat history until report appears or timeout.
-            result = await _poll_for_report(
-                client, poll_interval=poll_interval, timeout_min=timeout_min,
-            )
 
         return result
     finally:

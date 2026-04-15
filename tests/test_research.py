@@ -13,6 +13,8 @@ def _create_mock_client_with_chat_mocks():
     mock_client = MagicMock()
     mock_client.init = AsyncMock()
     mock_client.close = AsyncMock()
+    # Add mocks for deep_research and fallback path
+    mock_client.deep_research = AsyncMock()
     # Add mocks for fallback path
     mock_chat = MagicMock()
     mock_chat.send_message = AsyncMock()
@@ -240,24 +242,25 @@ class TestRunDeepResearch:
 
         assert result.done is True
 
-    def test_no_confirm_cancelled(self):
+    def test_no_confirm_runs_research(self):
+        """Test that --no-confirm runs research (no cancellation supported in new flow)."""
         from gemini_webapi.types import DeepResearchPlan, DeepResearchResult
 
         mock_client = _create_mock_client_with_chat_mocks()
-        mock_plan = MagicMock(spec=DeepResearchPlan)
-        mock_plan.title = "Test"
-        mock_plan.eta_text = "5 min"
-        mock_plan.steps = ["Step 1"]
-        mock_plan.query = "test"
+        mock_result = MagicMock(spec=DeepResearchResult)
+        mock_result.plan = MagicMock(spec=DeepResearchPlan)
+        mock_result.plan.title = "Test"
+        mock_result.done = True
+        mock_result.text = "Report"
 
-        mock_client.create_deep_research_plan = AsyncMock(return_value=mock_plan)
+        mock_client.deep_research = AsyncMock(return_value=mock_result)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
-                with patch("builtins.input", side_effect=KeyboardInterrupt):
-                    result = asyncio.run(run_deep_research("test", auto_confirm=False))
+                result = asyncio.run(run_deep_research("test", auto_confirm=False))
 
-        assert result.done is False
+        # With the simplified flow, research runs directly regardless of auto_confirm
+        assert result.done is True
 
     def test_passes_timeout_and_poll_interval(self):
         from gemini_webapi.types import DeepResearchPlan, DeepResearchResult
@@ -292,7 +295,8 @@ class TestRunDeepResearch:
         from gemini_webapi.exceptions import UsageLimitExceeded
 
         mock_client = _create_mock_client_with_chat_mocks()
-        mock_client.create_deep_research_plan = AsyncMock(side_effect=UsageLimitExceeded("limit"))
+        # UsageLimitExceeded from deep_research should propagate
+        mock_client.deep_research = AsyncMock(side_effect=UsageLimitExceeded("limit"))
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
@@ -328,30 +332,6 @@ class TestRunDeepResearch:
                 asyncio.run(run_deep_research("q", profile="work"))
 
         mock_auth_cls.assert_called_once_with("work")
-
-    def test_fallback_to_chat_history_on_plan_error(self):
-        """When plan extraction fails, polls chat history for report."""
-        from gemini_webapi.exceptions import GeminiError
-
-        mock_client = _create_mock_client_with_chat_mocks()
-        mock_client.create_deep_research_plan = AsyncMock(
-            side_effect=GeminiError("Gemini did not return a deep research plan.")
-        )
-
-        mock_report = "Fallback research report from chat history."
-        mock_poll_result = MagicMock()
-        mock_poll_result.done = True
-        mock_poll_result.text = mock_report
-
-        with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
-            with patch("research.GeminiClient", return_value=mock_client):
-                with patch("research._poll_for_report", new_callable=AsyncMock, return_value=mock_poll_result):
-                    result = asyncio.run(run_deep_research("test", auto_confirm=True))
-
-        assert result.done is True
-        assert result.text == mock_report
-        mock_client.close.assert_called_once()
-
 
 class TestExtractReportFromChat:
     def test_extracts_report_from_chat_success(self):
