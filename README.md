@@ -11,8 +11,9 @@ Shares authentication with [notebooklm-mcp-cli](https://github.com/jacob-bd/note
 
 - **Deep Research** — Run Gemini's multi-source deep research investigations
 - **Fallback Extraction** — Automatically extracts research reports from chat history when upstream parsing fails
-- **Chat** — Interactive REPL and single-message chat with Gemini
+- **Chat** — Interactive REPL and single-message chat with Gemini (works in non-interactive environments)
 - **Session Management** — List, view, and continue past conversations
+- **Model Selection** — Choose specific Gemini models, check availability and subscription tier
 - **Shared Auth** — Login once, use with both gdr and nlm
 - **CDP Login** — Browser-based authentication via Chrome DevTools Protocol
 
@@ -65,7 +66,7 @@ Research prints the chat CID immediately on start. If something goes wrong, you 
 # Interactive REPL
 gdr chat
 
-# Single message
+# Single message (works in scripts, pipes, Claude Code, etc.)
 gdr chat "Explain the difference between TCP and UDP"
 
 # Continue last conversation
@@ -90,13 +91,21 @@ gdr chats show <chat-id> -n 10
 
 Chat IDs are displayed without the `c_` prefix (e.g. `1975e4a9e33a362`). This is the same ID used in Gemini web URLs: `https://gemini.google.com/app/1975e4a9e33a362`. The `c_` prefix is added automatically when needed for API calls.
 
+### Models
+
+```bash
+gdr models
+```
+
+Lists available Gemini models, shows which are accessible for your account, and detects your subscription tier (free, plus, advanced). Probing uses metadata requests only — no inference, no limit consumption.
+
 ### Doctor
 
 ```bash
 gdr doctor
 ```
 
-Checks auth, cookies, and Gemini connectivity.
+Checks auth, cookies, Gemini connectivity, subscription tier, and Deep Research availability.
 
 ## Commands
 
@@ -106,6 +115,7 @@ Checks auth, cookies, and Gemini connectivity.
 | `gdr chat [prompt]` | Interactive chat REPL or single message |
 | `gdr chats list` | List recent chat sessions |
 | `gdr chats show <cid>` | View conversation history |
+| `gdr models` | List available models and subscription tier |
 | `gdr login` | Authenticate via Chrome CDP |
 | `gdr doctor` | Diagnose auth and connectivity |
 
@@ -113,6 +123,7 @@ Checks auth, cookies, and Gemini connectivity.
 
 - `--profile, -p` — Auth profile name (default: `default`)
 - `--version, -v` — Show version
+- `--debug, -d` — Enable debug logging from gemini_webapi
 
 ### Research Options
 
