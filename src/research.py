@@ -140,6 +140,7 @@ async def run_deep_research(
     poll_interval: float = 10.0,
     auto_confirm: bool = True,
     on_status: Callable[[DeepResearchStatus], None] | None = None,
+    model: str | None = None,
     _cid_holder: list[str | None] | None = None,
 ) -> DeepResearchResult:
     """Run a full research cycle: plan -> confirm -> poll -> result."""
@@ -154,7 +155,7 @@ async def run_deep_research(
 
     try:
         try:
-            plan = await client.create_deep_research_plan(query)
+            plan = await client.create_deep_research_plan(query, model=model)
         except Exception as e:
             # UsageLimitExceeded must propagate — don't swallow it
             from gemini_webapi.exceptions import UsageLimitExceeded

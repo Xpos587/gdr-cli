@@ -17,7 +17,7 @@ uv run gdr chat            # Interactive REPL
 
 ```
 src/
-├── cli.py         # Typer app — all CLI commands (research, chat, login, doctor, chats)
+├── cli.py         # Typer app — all CLI commands (research, chat, login, doctor, chats), --model flag
 ├── auth.py        # AuthManager + Profile — cookie loading, profile CRUD, account mismatch guard
 ├── config.py      # Path resolution + GDRConfig — ~/.notebooklm-mcp-cli/ layout
 ├── chat.py        # Gemini chat session management — send, continue, list, read history, delete

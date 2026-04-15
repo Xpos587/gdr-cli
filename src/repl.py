@@ -29,9 +29,11 @@ class ChatRepl:
         *,
         profile: str = "default",
         metadata: list[str] | None = None,
+        model: str | None = None,
     ):
         self.profile = profile
         self.metadata = metadata
+        self.model = model
         self._client = None
         self._session = None
         self._turn_count: int = 0
@@ -52,6 +54,8 @@ class ChatRepl:
         kwargs: dict[str, Any] = {}
         if self.metadata:
             kwargs["metadata"] = self.metadata
+        if self.model:
+            kwargs["model"] = self.model
         self._session = self._client.start_chat(**kwargs)
 
     async def send(self, prompt: str) -> str:
@@ -83,12 +87,13 @@ async def run_repl(
     *,
     profile: str = "default",
     metadata: list[str] | None = None,
+    model: str | None = None,
 ) -> None:
     """Run the interactive REPL loop."""
     from prompt_toolkit import PromptSession
     from prompt_toolkit.history import InMemoryHistory
 
-    repl = ChatRepl(profile=profile, metadata=metadata)
+    repl = ChatRepl(profile=profile, metadata=metadata, model=model)
 
     try:
         await repl.start()

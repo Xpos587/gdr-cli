@@ -114,10 +114,6 @@ Checks auth, cookies, and Gemini connectivity.
 - `--profile, -p` — Auth profile name (default: `default`)
 - `--version, -v` — Show version
 
-### Chat Options
-
-- `--continue, -c [CID]` — Continue a chat by ID (omit for last chat). Accepts `1975e4a9e33a362` or `c_1975e4a9e33a362`
-
 ### Research Options
 
 - `--timeout, -t` — Max research time in minutes (default: 30)
@@ -125,8 +121,12 @@ Checks auth, cookies, and Gemini connectivity.
 - `--no-confirm, -n` — Skip plan confirmation and start immediately
 - `--output, -o` — Write report to file
 - `--output-dir` — Auto-save to `DIR/{date}-{slug}.md`
+- `--model, -m` — Model name, e.g. `gemini-3-pro-advanced` (default: auto)
 
-### Chats Show Options
+### Chat Options
+
+- `--continue, -c [CID]` — Continue a chat by ID (omit for last chat). Accepts `1975e4a9e33a362` or `c_1975e4a9e33a362`
+- `--model, -m` — Model name, e.g. `gemini-3-pro-advanced` (default: auto)
 
 - `--limit, -n` — Number of turns to display (default: 20)
 

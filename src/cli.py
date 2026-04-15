@@ -85,6 +85,9 @@ def chat(
     continue_chat: Optional[str] = typer.Option(
         None, "--continue", "-c", help="Continue chat by CID, e.g. 1975e4a9e33a362 (omit for last chat)",
     ),
+    model: Optional[str] = typer.Option(
+        None, "--model", "-m", help="Model name, e.g. gemini-3-pro-advanced (default: auto)",
+    ),
 ):
     """Chat with Gemini. No prompt enters interactive mode."""
     from repl import run_repl
@@ -100,7 +103,7 @@ def chat(
                 if chats:
                     metadata = [chats[0]["cid"]]
 
-        asyncio.run(run_repl(profile=profile, metadata=metadata))
+        asyncio.run(run_repl(profile=profile, metadata=metadata, model=model))
     except GDRError as e:
         console.print(f"[red]Error:[/red] {e.message}")
         if e.hint:
@@ -223,6 +226,9 @@ def research(
     output_dir: Optional[Path] = typer.Option(
         None, "--output-dir", help="Auto-save report to DIR/{date}-{slug}.md",
     ),
+    model: Optional[str] = typer.Option(
+        None, "--model", "-m", help="Model name, e.g. gemini-3-pro-advanced (default: auto)",
+    ),
 ):
     """Run Gemini Deep Research on a topic."""
     from research import format_result, run_deep_research
@@ -236,6 +242,7 @@ def research(
                 timeout_min=timeout,
                 poll_interval=poll_interval,
                 auto_confirm=no_confirm,
+                model=model,
                 _cid_holder=cid_holder,
             )
         )

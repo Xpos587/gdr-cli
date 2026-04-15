@@ -30,11 +30,12 @@ async def send_message(
     prompt: str,
     profile: str = "default",
     timeout: float = 120,
+    model: str | None = None,
 ) -> str:
     """Send a single message to Gemini and return the text response."""
     client = await _create_client(profile, timeout)
     try:
-        chat = client.start_chat()
+        chat = client.start_chat(model=model) if model else client.start_chat()
         output = await chat.send_message(prompt)
         return output.text or ""
     finally:
@@ -47,6 +48,7 @@ async def continue_chat(
     metadata: list[str] | None = None,
     profile: str = "default",
     timeout: float = 120,
+    model: str | None = None,
 ) -> str:
     """Send a follow-up message in an existing conversation.
 
@@ -64,6 +66,8 @@ async def continue_chat(
         kwargs: dict[str, Any] = {}
         if metadata:
             kwargs["metadata"] = metadata
+        if model:
+            kwargs["model"] = model
         chat = client.start_chat(**kwargs)
         output = await chat.send_message(prompt)
         return output.text or ""
