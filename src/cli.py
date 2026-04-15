@@ -176,6 +176,7 @@ def models(
     ),
 ):
     """List available Gemini models. Checks which models your account can use."""
+    from rich.table import Table
     from gemini_webapi.constants import Model
 
     table = Table(title="Gemini Models", show_header=True, header_style="bold")
@@ -434,20 +435,18 @@ def doctor(
     # 5. Test Gemini connectivity
     console.print("\n  Testing Gemini connectivity...")
     try:
-        result = asyncio.run(_test_connectivity(cookies))
-        if result:
-            console.print(f"  [green]OK[/green] Gemini: authenticated and accessible")
-            console.print(f"  [green]OK[/green] Deep Research: {result}")
-        else:
-            console.print(f"  [red]FAIL[/red] Gemini returned no access token")
+        tier, dr_status = asyncio.run(_test_connectivity(cookies))
+        console.print(f"  [green]OK[/green] Gemini: authenticated and accessible")
+        console.print(f"  [green]OK[/green] Subscription: {tier}")
+        console.print(f"  [green]OK[/green] Deep Research: {dr_status}")
     except Exception as e:
         console.print(f"  [red]FAIL[/red] Gemini connectivity: {e}")
 
     console.print()
 
 
-async def _test_connectivity(cookies: dict[str, str]) -> str | None:
-    """Test that cookies work with gemini_webapi."""
+async def _test_connectivity(cookies: dict[str, str]) -> tuple[str, str]:
+    """Test that cookies work with gemini_webapi. Returns (tier, dr_status)."""
     from gemini_webapi import GeminiClient
 
     client = GeminiClient(
@@ -460,7 +459,18 @@ async def _test_connectivity(cookies: dict[str, str]) -> str | None:
         snapshot = await client.inspect_account_status()
         summary = snapshot.get("summary", {})
         dr_available = summary.get("deep_research_feature_present", False)
-        return "available" if dr_available else "not available (check subscription)"
+
+        # Infer tier from probe results
+        bootstrap = snapshot["rpc"].get("bootstrap", {})
+        if dr_available:
+            tier = "advanced"
+        elif bootstrap.get("ok", False):
+            tier = "plus"
+        else:
+            tier = "free"
+
+        dr_status = "available" if dr_available else "not available"
+        return tier, dr_status
     finally:
         await client.close()
 

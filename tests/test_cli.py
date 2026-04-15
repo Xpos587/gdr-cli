@@ -385,7 +385,8 @@ class TestDoctorCommand:
         mock_client = MagicMock()
         mock_client.init = AsyncMock()
         mock_client.inspect_account_status = AsyncMock(return_value={
-            "summary": {"deep_research_feature_present": True}
+            "summary": {"deep_research_feature_present": True},
+            "rpc": {"bootstrap": {"ok": True}},
         })
         mock_client.close = AsyncMock()
 
@@ -413,7 +414,8 @@ class TestDoctorCommand:
         mock_client = MagicMock()
         mock_client.init = AsyncMock()
         mock_client.inspect_account_status = AsyncMock(return_value={
-            "summary": {"deep_research_feature_present": True}
+            "summary": {"deep_research_feature_present": True},
+            "rpc": {"bootstrap": {"ok": True}},
         })
         mock_client.close = AsyncMock()
 
@@ -440,7 +442,7 @@ class TestDoctorCommand:
 
         mock_client = MagicMock()
         mock_client.init = AsyncMock()
-        mock_client.inspect_account_status = AsyncMock(return_value={"summary": {}})
+        mock_client.inspect_account_status = AsyncMock(return_value={"summary": {}, "rpc": {"bootstrap": {"ok": False}}})
         mock_client.close = AsyncMock()
 
         with patch("gemini_webapi.GeminiClient", return_value=mock_client):
@@ -522,7 +524,7 @@ class TestDoctorCommand:
         mock_client = MagicMock()
         mock_client.init = AsyncMock()
         mock_client.inspect_account_status = AsyncMock(return_value={
-            "summary": {"deep_research_feature_present": False}
+            "summary": {"deep_research_feature_present": False}, "rpc": {"bootstrap": {"ok": False}},
         })
         mock_client.close = AsyncMock()
 
@@ -597,27 +599,42 @@ class TestTestConnectivity:
         mock_client = MagicMock()
         mock_client.init = AsyncMock()
         mock_client.inspect_account_status = AsyncMock(return_value={
-            "summary": {"deep_research_feature_present": True}
+            "summary": {"deep_research_feature_present": True}, "rpc": {"bootstrap": {"ok": True}},
         })
         mock_client.close = AsyncMock()
 
         with patch("gemini_webapi.GeminiClient", return_value=mock_client):
-            result = asyncio.run(_test_connectivity({"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}))
+            tier, dr = asyncio.run(_test_connectivity({"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}))
 
-        assert result == "available"
+        assert tier == "advanced"
+        assert dr == "available"
 
     def test_returns_not_available(self):
         mock_client = MagicMock()
         mock_client.init = AsyncMock()
         mock_client.inspect_account_status = AsyncMock(return_value={
-            "summary": {"deep_research_feature_present": False}
+            "summary": {"deep_research_feature_present": False}, "rpc": {"bootstrap": {"ok": True}},
         })
         mock_client.close = AsyncMock()
 
         with patch("gemini_webapi.GeminiClient", return_value=mock_client):
-            result = asyncio.run(_test_connectivity({"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}))
+            tier, dr = asyncio.run(_test_connectivity({"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}))
 
-        assert "not available" in result
+        assert tier == "plus"
+        assert dr == "not available"
+
+    def test_returns_free_tier(self):
+        mock_client = MagicMock()
+        mock_client.init = AsyncMock()
+        mock_client.inspect_account_status = AsyncMock(return_value={
+            "summary": {"deep_research_feature_present": False}, "rpc": {"bootstrap": {"ok": False}},
+        })
+        mock_client.close = AsyncMock()
+
+        with patch("gemini_webapi.GeminiClient", return_value=mock_client):
+            tier, dr = asyncio.run(_test_connectivity({"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}))
+
+        assert tier == "free"
 
     def test_returns_none_on_error(self):
         mock_client = MagicMock()
