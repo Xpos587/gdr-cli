@@ -168,32 +168,83 @@ async def run_deep_research(
         # Send the research query with deep_research=True to activate deep research mode
         output = await chat.send_message(query, deep_research=True)
 
-        # Check if a deep research plan was returned
-        plan = getattr(output, 'deep_research_plan', None)
-        if plan and auto_confirm:
-            # Automatically confirm and start the research
-            confirm_prompt = getattr(plan, 'confirm_prompt', None) or "Start research"
-            print(f"  [bold]Starting research:[/bold] {plan.title or query}", file=sys.stderr)
-            output = await chat.send_message(confirm_prompt, deep_research=True)
-
-        # Try to get CID from chat
-        cid = None
-        chats = client.list_chats()
-        if chats:
-            latest = max(chats, key=lambda c: c.timestamp)
-            cid = latest.cid
-
+        # Get CID immediately after first message
+        cid = chat.cid
         if cid:
             display_cid = cid.removeprefix("c_")
             print(f"  Chat: https://gemini.google.com/app/{display_cid}", file=sys.stderr)
             if _cid_holder is not None:
                 _cid_holder[0] = cid
 
+        # Check if a deep research plan was returned
+        plan = getattr(output, 'deep_research_plan', None)
+        research_id = getattr(plan, 'research_id', None) if plan else None
+
+        if plan and auto_confirm:
+            # Automatically confirm and start the research
+            confirm_prompt = getattr(plan, 'confirm_prompt', None) or "Start research"
+            print(f"  [bold]Starting research:[/bold] {plan.title or query}", file=sys.stderr)
+            output = await chat.send_message(confirm_prompt, deep_research=True)
+
+            # Poll for completion if we have a research_id
+            if research_id:
+                from rich.console import Console
+                from rich.status import Status
+
+                console = Console(stderr=True)
+                deadline = time.monotonic() + timeout_min * 60
+                poll_seconds = 0
+
+                with Status(
+                    "[bold blue]Research in progress...[/]",
+                    spinner="dots",
+                    console=console,
+                ) as status:
+                    while time.monotonic() < deadline:
+                        await asyncio.sleep(poll_interval)
+                        poll_seconds += poll_interval
+
+                        # Try to get status
+                        try:
+                            status_obj = await client.get_deep_research_status(research_id)
+                            if status_obj:
+                                state_label = status_obj.state.upper()
+                                if status_obj.title:
+                                    status.update(
+                                        f"[bold blue]Research in progress...[/] "
+                                        f"[{state_label}] {status_obj.title}"
+                                    )
+                                if status_obj.done:
+                                    status.update("[bold green]Research completed![/]")
+                                    break
+                        except Exception as e:
+                            logger.debug(f"Status poll failed: {e}")
+
+                        # Update elapsed time
+                        elapsed = int(poll_seconds)
+                        remaining = int(deadline - time.monotonic())
+                        status.update(
+                            f"[bold blue]Research in progress...[/] "
+                            f"({elapsed}s elapsed, ~{remaining}s remaining)"
+                        )
+
+                # Fetch final result from chat
+                if cid:
+                    final_output = await client.fetch_latest_chat_response(cid)
+                    if final_output:
+                        output = final_output
+
         # Extract text from ModelOutput
         response_text = output.text if output else ""
 
+        # Research is done if: no plan (regular chat), or plan with research_id (we polled it)
+        is_done = research_id is None  # No plan = regular chat = done
+        if research_id and auto_confirm:
+            # We polled for completion, so it's done
+            is_done = True
+
         # Return result as if it was deep research
-        return _make_result_with_text(response_text, done=True)
+        return _make_result_with_text(response_text, done=is_done)
 
     finally:
         await client.close()

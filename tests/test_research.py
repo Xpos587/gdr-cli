@@ -207,6 +207,7 @@ class TestRunDeepResearch:
         mock_output.deep_research_plan = None  # No plan, single call
         mock_chat = MagicMock()
         mock_chat.send_message = AsyncMock(return_value=mock_output)
+        mock_chat.cid = "c_test123"  # Mock CID
         mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
@@ -230,6 +231,7 @@ class TestRunDeepResearch:
         mock_plan = MagicMock(spec=DeepResearchPlan)
         mock_plan.title = "Test Research"
         mock_plan.confirm_prompt = "Start research"
+        mock_plan.research_id = "res_123"  # Add research_id
         mock_output_with_plan.deep_research_plan = mock_plan
 
         mock_output_result = MagicMock(spec=ModelOutput)
@@ -239,7 +241,14 @@ class TestRunDeepResearch:
         mock_chat.send_message = AsyncMock(
             side_effect=[mock_output_with_plan, mock_output_result]
         )
+        mock_chat.cid = "c_test456"  # Mock CID
         mock_client.start_chat = MagicMock(return_value=mock_chat)
+        # Mock get_deep_research_status to return done immediately
+        mock_status = MagicMock()
+        mock_status.done = True
+        mock_client.get_deep_research_status = AsyncMock(return_value=mock_status)
+        # Mock fetch_latest_chat_response
+        mock_client.fetch_latest_chat_response = AsyncMock(return_value=mock_output_result)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
             with patch("research.GeminiClient", return_value=mock_client):
@@ -265,6 +274,7 @@ class TestRunDeepResearch:
         mock_output.deep_research_plan = None  # No plan
         mock_chat = MagicMock()
         mock_chat.send_message = AsyncMock(return_value=mock_output)
+        mock_chat.cid = "c_test789"  # Mock CID
         mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
@@ -289,6 +299,7 @@ class TestRunDeepResearch:
         mock_output.deep_research_plan = None  # No plan
         mock_chat = MagicMock()
         mock_chat.send_message = AsyncMock(return_value=mock_output)
+        mock_chat.cid = "c_testabc"  # Mock CID
         mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
@@ -311,6 +322,7 @@ class TestRunDeepResearch:
         mock_output.deep_research_plan = None  # No plan
         mock_chat = MagicMock()
         mock_chat.send_message = AsyncMock(return_value=mock_output)
+        mock_chat.cid = "c_testdef"  # Mock CID
         mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("auth.AuthManager.get_cookies", return_value={"__Secure-1PSID": "v", "__Secure-1PSIDTS": "vt"}):
@@ -350,6 +362,7 @@ class TestRunDeepResearch:
         mock_output.deep_research_plan = None  # No plan
         mock_chat = MagicMock()
         mock_chat.send_message = AsyncMock(return_value=mock_output)
+        mock_chat.cid = "c_testghi"  # Mock CID
         mock_client.start_chat = MagicMock(return_value=mock_chat)
 
         with patch("research.AuthManager") as mock_auth_cls:
